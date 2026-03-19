@@ -59,7 +59,7 @@ Temperatures crossed **50°C in Delhi in summer 2024** — the highest in 50 yea
 |---|---|---|
 | IMD Red Alert + heat index ≥44°C for 2+ hrs in active shift | 70% of avg daily earnings, auto UPI | IMD + [Open-Meteo](https://open-meteo.com/) |
 
-✅ Worker can log off safely · ✅ Zero fraud risk — no one controls the sun · ✅ 20+ yrs of IMD data for precise pricing
+- Worker can log off safely -> Zero fraud risk — no one controls the sun -> 20+ yrs of IMD data for precise pricing
 
 ---
 
@@ -76,7 +76,7 @@ During Mumbai's monsoon, zone orders collapse 70% in 20 minutes while Zomato cha
 |---|---|---|
 | Rainfall ≥25mm/hr for 90+ min in rider's zone | 70% shift earnings + **Slab Shield** (missed bonus paid too) | IMD + [Open-Meteo](https://open-meteo.com/) |
 
-✅ Slab Shield is unique — covers the bonus cascade loss no other product addresses · ✅ Minute-level IMD data, fully tamper-proof
+* Slab Shield is unique — covers the bonus cascade loss no other product addresses · * Minute-level IMD data, fully tamper-proof
 
 ---
 
@@ -93,7 +93,7 @@ Visibility: 30 metres. Delivery timer: 18 minutes. Slow down → rating drops. S
 |---|---|---|
 | IMD Dense Fog advisory + visibility <100m for 3+ hrs during shift | Half-shift income (7–11 PM window) | [IMD Fog Bulletins](https://mausam.imd.gov.in/imd_latest/contents/fog-bulletins.php) |
 
-✅ First product in India that pays a rider to make the safe choice · ✅ 40–60 fog days/winter in North India = predictable risk pool
+* First product in India that pays a rider to make the safe choice ->  40–60 fog days/winter in North India = predictable risk pool
 
 ---
 
@@ -110,7 +110,7 @@ Delhi's AQI breaches 400 (Severe) for weeks every winter. Workers keep riding to
 |---|---|---|
 | CPCB AQI ≥400 for 3+ consecutive hours | Health Safety Supplement — partial shift income | [CPCB API](https://cpcb.nic.in/) (free, hourly) |
 
-✅ Government-published, updated hourly, city-specific · ✅ Worker can reduce hours without a financial penalty
+* Government-published, updated hourly, city-specific ->  Worker can reduce hours without a financial penalty
 
 ---
 
@@ -131,7 +131,7 @@ A flash bandh at 4:45 PM — no warning. Restaurants close. Orders vanish. Priya
 |---|---|---|
 | NewsAPI: 'bandh'/'curfew' confirmed in 3+ sources **AND** zone orders drop ≥65% | Full declared shift income | [NewsAPI](https://newsapi.org/) + platform mock |
 
-✅ **Dual-source = zero fraud** — you can't fake a national news event AND a platform-wide order collapse · ✅ Fully automated
+* **Dual-source = zero fraud** — you can't fake a national news event AND a platform-wide order collapse ·  Fully automated
 
 ---
 
@@ -148,7 +148,7 @@ Active Metro construction has added 25–40 minutes to last-mile delivery routes
 |---|---|---|
 | Traffic API: avg travel time >200% of historical mean for rider's hub | Per-hour Congestion Supplement | Google Maps / HERE Maps (mock API) |
 
-✅ Route-level travel history is objectively verifiable · ✅ First product to treat chronic congestion as an insurable income event
+* Route-level travel history is objectively verifiable -> First product to treat chronic congestion as an insurable income event
 
 ---
 
@@ -169,7 +169,7 @@ Zomato's server went down on a Friday evening in October 2021 — peak dinner ru
 |---|---|---|
 | [Downdetector](https://downdetector.in/): 500+ reports in 15 min + outage >45 min during peak hours | Hourly rate × confirmed outage duration | Downdetector API (independent) |
 
-✅ Fully independent of Zomato/Swiggy — cannot be manipulated · ✅ No claim form, no chatbot — money lands automatically
+* Fully independent of Zomato/Swiggy — cannot be manipulated ·  No claim form, no chatbot — money lands automatically
 
 ---
 
