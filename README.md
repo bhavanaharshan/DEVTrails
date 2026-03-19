@@ -18,7 +18,6 @@
 9. [Phase 1 Video Pitch](#9-phase-1-video-pitch)
 
 ---
-
 # 👥 Persona & Scenario Analysis
 
 ## Why Food Delivery Workers?
@@ -26,7 +25,6 @@
 India's **5–8 million food delivery workers** (Zomato, Swiggy) are the backbone of the urban digital economy — yet they are completely unprotected when external disruptions wipe out their income.
 
 We chose this persona because no existing insurance product in India covers **income loss from weather, platform failures, or social disruptions.**
-
 > When it rains → ₹0. App crashes → ₹0. Bandh called → ₹0. **We fix that.**
 
 | Pain Point | The Reality |
@@ -175,25 +173,14 @@ Zomato's server went down on a Friday evening in October 2021 — peak dinner ru
 
 ---
 
-## Quick Reference — All 7 Scenarios
 
-| # | Scenario | City | Trigger Threshold | Payout Type | Verified By |
-|---|---|---|---|---|---|
-| 1 | 🌡️ Extreme Heat | Delhi | IMD Red Alert + ≥44°C heat index | 70% daily income | [IMD](https://mausam.imd.gov.in/) |
-| 2 | 🌧️ Heavy Rain | Mumbai | ≥25mm/hr for 90+ min | Earnings + Slab Shield | [IMD](https://mausam.imd.gov.in/) |
-| 3 | 🌫️ Dense Fog | Lucknow | Visibility <100m for 3+ hrs | Half-shift income | [IMD](https://mausam.imd.gov.in/imd_latest/contents/fog-bulletins.php) |
-| 4 | 😷 Severe AQI | Delhi-NCR | CPCB AQI ≥400 for 3+ hrs | Health supplement | [CPCB](https://cpcb.nic.in/) |
-| 5 | 🚫 Bandh / Curfew | Chennai | News + 65% order drop | Full shift income | [NewsAPI](https://newsapi.org/) |
-| 6 | 🚧 Congestion | Metro cities | Travel time >200% of mean | Per-hour supplement | Maps API |
-| 7 | 💀 App Outage | Mumbai | 500+ Downdetector reports | Hourly × duration | [Downdetector](https://downdetector.in/) |
-
----
 
 <div align="center">
 
 > **The GigShield Principle:** Every payout is triggered by objective, third-party, government-verified or publicly monitored data. The worker never has to prove anything. The insurer never has to investigate anything. The algorithm pays — instantly, fairly, automatically.
-
 </div>
+
+
 
 
 ## 2. ⚖️ Coverage Scope & The Golden Rules
