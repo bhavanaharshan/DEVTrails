@@ -196,84 +196,91 @@ Zomato's server went down on a Friday evening in October 2021 — peak dinner ru
 5.  **The Payout:** The system calculates the estimated lost income for those specific hours and processes an instant payout to the partner's linked wallet.
 
 ## 4. Insurance Premium & Payout Model
+
 A risk-adjusted, income-based micro-insurance framework for gig economy workers, designed to be affordable, dynamic, and ML-powered.
 
-**Premium Calculation**
-<br>
-Premiums are calculated in three steps.
-<br>
-**Step 1 — Base Premium**  
+---
+
+## 💸 Premium Calculation
+
+Premiums are calculated in three steps:
+
+### **Step 1 — Base Premium**
 
 The base premium is a percentage of the worker's weekly income:
-
-```Base Premium = Weekly Income × Base Rate``` 
 <br>
-The base rate is approximately 1.5% – 2%
-<br>
-**Step 2 — Adjusted Premium**
-<br>
-The base premium is then multiplied by a set of risk factors:
-<br>
-```Adjusted Premium = Base Premium × City Risk × Shift Factor × Platform Factor × Zone Factor```  
+```Base Premium = Weekly Income × Base Rate```
 
-City Risk accounts for location-based disruption history  
+- Base Rate ≈ **1.5% – 2%**
 
-Shift Factor reflects risk based on working hours  
+---
 
-Platform Factor applies a platform-specific loss ratio  
+### **Step 2 — Adjusted Premium**
 
-Zone Factor captures hyperlocal zone risk
+The base premium is multiplied by a set of risk factors:
 
-**Step 3 — Final Premium (Affordability Cap)** 
-<br>
-The adjusted premium is capped to keep it affordable for all workers:
+```Adjusted Premium = Base Premium × City Risk × Shift Factor × Platform Factor × Zone Factor```
 
-```Final Premium = min(max(Adjusted Premium, ₹29), ₹99)```  
+- **City Risk** → location-based disruption history  
+- **Shift Factor** → risk based on working hours  
+- **Platform Factor** → platform-specific variability  
+- **Zone Factor** → hyperlocal area risk  
 
-The premium is always between ₹29 and ₹99 per week, regardless of the calculated value
+---
 
+### **Step 3 — Final Premium (Affordability Cap)**
 
-## Payout Calculation  
-<br>
-When a trigger event occurs, the payout is based on the worker's daily income and a coverage percentage:
+The adjusted premium is capped to ensure affordability:
+
+```Final Premium = min(max(Adjusted Premium, 29), 99)```
+
+- Premium range: **₹29 – ₹99 per week**
+
+---
+
+## 💰 Payout Calculation
+
+When a trigger event occurs, payout is based on the worker's daily income:
 
 ```Daily Income = Weekly Income / 7```
+
 ```Daily Payout = Daily Income × Coverage Percentage```
+
 ```Max Weekly Payout = Daily Payout × Max Trigger Days```
 
-**Key parameters:**
+### **Key Parameters**
 
-Coverage is set at ```60% – 80% of daily income```
-<br>
-Max Trigger Days is capped at ```3 days per week```  
+- Coverage = **60% – 80% of daily income**  
+- Max Trigger Days = **3 days per week**
 
+---
 
+## 🔁 Dynamic Premium Adjustment
 
-## Dynamic Premium Adjustment
-<br>
-Premiums are recalibrated every week based on actual versus expected losses:
+Premiums are recalibrated weekly based on actual vs expected loss:
 
-```New Premium = Old Premium × (Actual Loss / Expected Loss)```  
-
-If actual losses are higher than expected, the premium increases  
-
-If actual losses are lower than expected, the premium decreases  
-
-This keeps the model fair and responsive to real-world conditions  
+```New Premium = Old Premium × (Actual Loss / Expected Loss)```
 
 
+- If actual loss > expected → premium increases  
+- If actual loss < expected → premium decreases  
 
-## ML-Based Expected Loss
-<br>
-Expected loss is estimated using a machine learning model such as XGBoost:
-<br>
+👉 Ensures fairness and long-term sustainability  
 
-```Expected Loss = f(Rain, Zone Risk, Shift Pattern, Historical Claims, Seasonality)```  
+---
 
-The model is trained on historical claims and environmental data  
+## 🤖 ML-Based Expected Loss
 
-It predicts payout risk before each coverage week begins  
+Expected loss is estimated using machine learning models (e.g., XGBoost):
 
+
+```Expected Loss = f(Rain, Zone Risk, Shift Pattern, Historical Claims, Seasonality)```
+
+
+- Trained on **historical claims + environmental data**  
+- Predicts **future payout risk before each week**
+
+---
 
 ## 5. 🧠 AI & Machine Learning Architecture
 Our system leverages advanced machine learning to ensure sustainability and security:
