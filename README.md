@@ -195,14 +195,61 @@ Zomato's server went down on a Friday evening in October 2021 — peak dinner ru
 4.  **The Action:** The policy is parametrically triggered. An automated claim is initiated without the user needing to file a manual report.
 5.  **The Payout:** The system calculates the estimated lost income for those specific hours and processes an instant payout to the partner's linked wallet.
 
-## 4. 📊 Parametric Triggers & The Financial Model
-### The Weekly Pricing Model
-Gig workers operate on a week-to-week cash flow. Therefore, our premium model is fundamentally structured on a **Weekly Pricing Basis**. 
-* Premiums are dynamically calculated at the start of each week based on the upcoming 7-day weather forecasts, the partner's historical operating zones, and macro-environmental risks.
+## Insurance Premium & Payout Model
+A risk-adjusted, income-based micro-insurance framework for gig economy workers, designed to be affordable, dynamic, and ML-powered.
 
-### Core Parametric Triggers
-1.  **Environmental:** Rainfall > `X` mm/hr, Temperature > `Y`°C.
-2.  **Social/Infrastructure:** Detected severe zone closures or traffic paralysis > `Z` minutes in the operating grid.
+**Premium Calculation**
+Premiums are calculated in three steps.
+**Step 1 — Base Premium**
+The base premium is a percentage of the worker's weekly income:
+
+Base Premium = Weekly Income × Base Rate
+The base rate is approximately 1.5% – 2%
+
+**Step 2 — Adjusted Premium**
+The base premium is then multiplied by a set of risk factors:
+
+Adjusted Premium = Base Premium × City Risk × Shift Factor × Platform Factor × Zone Factor
+City Risk accounts for location-based disruption history
+Shift Factor reflects risk based on working hours
+Platform Factor applies a platform-specific loss ratio
+Zone Factor captures hyperlocal zone risk
+
+**Step 3 — Final Premium (Affordability Cap)**
+The adjusted premium is capped to keep it affordable for all workers:
+
+Final Premium = min(max(Adjusted Premium, ₹29), ₹99)
+The premium is always between ₹29 and ₹99 per week, regardless of the calculated value
+
+
+## Payout Calculation
+When a trigger event occurs, the payout is based on the worker's daily income and a coverage percentage:
+
+Daily Income = Weekly Income / 7
+Daily Payout = Daily Income × Coverage Percentage
+Max Weekly Payout = Daily Payout × Max Trigger Days
+
+**Key parameters:**
+
+Coverage is set at 60% – 80% of daily income
+Max Trigger Days is capped at 3 days per week
+
+
+## Dynamic Premium Adjustment
+Premiums are recalibrated every week based on actual versus expected losses:
+
+New Premium = Old Premium × (Actual Loss / Expected Loss)
+If actual losses are higher than expected, the premium increases
+If actual losses are lower than expected, the premium decreases
+This keeps the model fair and responsive to real-world conditions
+
+
+## ML-Based Expected Loss
+Expected loss is estimated using a machine learning model such as XGBoost:
+
+Expected Loss = f(Rain, Zone Risk, Shift Pattern, Historical Claims, Seasonality)
+The model is trained on historical claims and environmental data
+It predicts payout risk before each coverage week begins
 
 ## 5. 🧠 AI & Machine Learning Architecture
 Our system leverages advanced machine learning to ensure sustainability and security:
