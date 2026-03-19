@@ -203,7 +203,7 @@ Premiums are calculated in three steps.
 **Step 1 — Base Premium**
 The base premium is a percentage of the worker's weekly income:
 
-Base Premium = Weekly Income × Base Rate
+```Base Premium = Weekly Income × Base Rate```
 The base rate is approximately 1.5% – 2%
 
 **Step 2 — Adjusted Premium**
