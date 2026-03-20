@@ -539,11 +539,107 @@ The pool is protected before it drains, not after.
 *GPS spoofing beats a GPS-only system. It does not beat five independent signal 
 layers that all have to agree before a rupee leaves the pool.*
 ## 5. 🧠 AI & Machine Learning Architecture
-Our system leverages advanced machine learning to ensure sustainability and security:
 
-* **Dynamic Premium Calculation (Risk Modeling):** Utilizing localized historical weather data and delivery density, our ML models predict the probability of disruption for specific geo-hashes. The weekly premium is adjusted dynamically—e.g., offering lower weekly premiums in historically safer zones.
-* **Intelligent Fraud Detection:** * **Anomaly Detection:** Cross-referencing claimed disruption locations with verified external APIs to catch fake weather claims.
-    * **Spatial Analysis:** Implementing Graph Neural Networks (GNNs) to map normal delivery routes and identify anomalies like GPS spoofing or coordinated localized fraud rings.
+Our system leverages machine learning to enable **risk-aware pricing, accurate disruption detection, and fraud prevention**, ensuring both sustainability and trust.
+
+---
+
+### 🔹 Dynamic Premium Engine (Risk Modeling)
+
+We use a supervised learning model (e.g., XGBoost) to estimate **expected loss per rider per week**.
+
+```
+Expected Loss = f(Weather Patterns, Zone Risk, Shift Timing, Historical Claims, Seasonality)
+```
+
+- Trained on historical weather, disruption, and payout data
+- Outputs a **risk score** that drives the weekly premium
+- Enables **personalized, location-aware pricing**
+- Lower premiums for historically safer zones
+
+---
+
+### 🔹 Risk Zone Classifier
+
+A classification model (e.g., Random Forest) assigns **risk levels to delivery zones**, updated weekly to reflect changing environmental conditions.
+
+| Input Feature         | Output          |
+|-----------------------|-----------------|
+| Rainfall history      | 🟢 Low Risk     |
+| Flood / AQI data      | 🟡 Medium Risk  |
+| Past disruption freq. | 🔴 High Risk    |
+
+---
+
+### 🔹 Disruption Prediction Model
+
+A time-series forecasting model (e.g., Prophet / LSTM) predicts **future disruption likelihood** using:
+
+- Weather forecasts
+- Seasonal trends
+- Historical event patterns
+
+This enables:
+- Proactive rider alerts (e.g., *"Heavy rain expected Wednesday"*)
+- Better risk planning and forward-looking pricing
+
+---
+
+### 🔹 Fraud Detection Engine
+
+We use an unsupervised model (e.g., Isolation Forest) to detect **suspicious claims**. The engine flags:
+
+- Claims without matching weather or API signals
+- Duplicate claims across multiple accounts
+- Sudden claim spikes within a small GPS cluster
+
+This ensures system integrity and prevents misuse.
+
+---
+
+### 🔹 Claim Trigger Validator
+
+A hybrid **rule-based + ML confidence system** validates every event before payout is released.
+
+- Requires confirmation from **≥ 2 independent data sources**
+- Uses a confidence scoring threshold:
+
+```
+If Confidence Score ≥ 0.85 → Auto Approve
+Else                        → Manual Review Queue
+```
+
+This balances automation with reliability.
+
+---
+
+### 🔁 Continuous Learning Loop
+
+The system improves over time through a feedback loop, incorporating:
+
+- Actual payouts vs. predicted risk
+- New disruption events
+- Updated rider behavior patterns
+
+```
+New Premium ∝ Actual Loss / Expected Loss
+```
+
+Models are **retrained weekly** to ensure fair pricing, improved prediction accuracy, and long-term sustainability.
+
+---
+
+### 🎯 Summary
+
+| Component                  | Model Type              | Purpose                          |
+|----------------------------|-------------------------|----------------------------------|
+| Dynamic Premium Engine     | XGBoost (Supervised)    | Risk-based weekly pricing        |
+| Risk Zone Classifier       | Random Forest           | Zone-level risk categorization   |
+| Disruption Prediction      | Prophet / LSTM          | Forecast future disruptions      |
+| Fraud Detection Engine     | Isolation Forest        | Anomaly & duplicate detection    |
+| Claim Trigger Validator    | Rule-based + ML Hybrid  | Auto-approve or flag for review  |
+
+> A fully intelligent backbone powering real-time parametric insurance — self-improving, fraud-resistant, and rider-aware.
 
 ## 6. 📱 Platform Strategy: Web vs. Mobile
 **Decision:** [Insert Choice, e.g., Mobile-First Progressive Web App (PWA) or Native Mobile App]
