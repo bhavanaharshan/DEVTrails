@@ -841,10 +841,100 @@ A mobile-first PWA provides the best balance between accessibility and functiona
 | GitHub Actions | CI/CD pipeline |
 | Render / Railway | Backend hosting and deployment |
 
-## 8. 🗺️ 6-Week Development Plan
-* **Weeks 1-2 (Phase 1):** Ideation, persona definition, workflow architecture, and initial repository setup. *(Current)*
-* **Weeks 3-4 (Phase 2):** Development of the registration portal, dynamic premium calculation logic, and building 3-5 automated trigger connections via mock APIs.
-* **Weeks 5-6 (Phase 3):** Implementation of advanced ML fraud detection, integration of instant payout simulators, and finalization of the analytics dashboard.
+## 📌 6-Week Development Plan
+
+A structured roadmap to build a **parametric, AI-driven income protection system** for gig workers, covering design, development, automation, and deployment.
+
+---
+
+### 🔹 Weeks 1–2 (Phase 1: Ideation & Foundation)
+
+- Define **target personas** (e.g., Zomato/Swiggy delivery partners)
+- Identify key **income disruption scenarios**:
+  - Rainfall, heatwaves, AQI, bandh, platform outages
+- Design **end-to-end system architecture**:
+  - PWA frontend, backend APIs, ML pipeline
+- Plan core modules:
+  - Registration, pricing engine, trigger system, claims, dashboard
+- Define **weekly premium model**:
+  - Income-based pricing + risk multipliers
+- Plan AI/ML integration:
+  - Risk scoring (premium calculation)
+  - Disruption prediction
+  - Fraud detection strategy
+- Design database schema (users, policies, triggers, payouts)
+- Set up GitHub repository and project structure
+- Create initial **README documentation**
+- Record a **2-minute idea explanation video**
+
+---
+
+### 🔹 Weeks 3–4 (Phase 2: Development & Automation)
+
+- Build **user onboarding & KYC module**
+- Implement **insurance policy management system**
+- Develop **dynamic premium calculation engine** (ML-based)
+- Integrate **mock APIs**:
+  - Weather (rain, temperature)
+  - AQI (air quality)
+  - News (bandh/curfew)
+  - Platform outage signals
+- Implement **parametric trigger engine**:
+  - Rainfall threshold
+  - Heat index threshold
+  - AQI threshold
+  - Bandh detection
+  - App outage detection
+- Develop **automated claim triggering system** (no manual input)
+- Implement **basic fraud checks**:
+  - GPS validation
+  - Activity verification
+- Build **worker dashboard (basic UI)**:
+  - Premium, coverage, payout status
+- Ensure **end-to-end flow works**:
+  - Trigger → auto claim → payout simulation
+- Record a **2-minute functional demo video**
+
+---
+
+### 🔹 Weeks 5–6 (Phase 3: ML Integration & Optimization)
+
+- Implement **advanced fraud detection system**:
+  - GPS spoofing detection
+  - Device trust validation
+  - Route/mobility analysis
+  - Duplicate & anomaly detection (Isolation Forest / LightGBM)
+  - Basic cluster/ring detection
+- Integrate **instant payout simulation**:
+  - Razorpay sandbox / UPI mock
+- Build **analytics dashboards**:
+  - Worker view: earnings protected, active coverage
+  - Admin view: risk insights, claims, fraud flags
+- Optimize **UI/UX for mobile-first PWA**
+- Implement **real-time trigger validation system**
+- Add **confidence scoring + multi-signal verification**
+- Simulate real-world scenarios:
+  - Rain event → trigger → auto payout
+  - Bandh → order drop → payout
+- Improve performance and reliability
+- Finalize **AI model integration & tuning**
+
+---
+
+### 🚀 Final Deliverables
+
+- Fully functional **Progressive Web App (PWA)**
+- AI-driven **dynamic premium calculation system**
+- Real-time **parametric trigger engine**
+- Automated **claim & payout system (no manual claims)**
+- Fraud detection & validation pipeline
+- Demo scenarios (rain, bandh, outage)
+- Complete **README documentation**
+- **5-minute demo video**
+- **Final pitch deck (business + AI + pricing model)**
+
+---
+
 
 ## 9. 🎥 Phase 1 Video Pitch
 [Insert link to the 2-minute publicly accessible video outlining the strategy, execution plan, and minimal scope prototype.]
