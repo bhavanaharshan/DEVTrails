@@ -1,8 +1,8 @@
-# 🛡️ [Project Name]: AI-Powered Parametric Insurance for Gig Economy Delivery Partners
+# 🛡️ GigShield: AI-Powered Parametric Insurance for Gig Economy Delivery Partners
 
 [![Guidewire DEVTrails](https://img.shields.io/badge/Guidewire-DEVTrails_2026-blue)](#) [![Phase 1](https://img.shields.io/badge/Phase-1_Ideation-green)](#) 
 
-> **Brief Pitch:** [Project Name] is a parametric insurance platform designed exclusively to protect the livelihoods of [Insert Specific Persona, e.g., Q-Commerce Delivery Partners like Zepto/Blinkit] from uncontrollable external disruptions. We ensure that when the weather stops, their income doesn't.
+> **Brief Pitch:** GigShield is a parametric insurance platform designed exclusively to protect the livelihoods of food delivery workers from uncontrollable external disruptions. We ensure that when the weather stops, their income doesn't.
 
 # 👥 Persona & Scenario Analysis
 
