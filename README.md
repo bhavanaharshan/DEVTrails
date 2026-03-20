@@ -641,9 +641,52 @@ Models are **retrained weekly** to ensure fair pricing, improved prediction accu
 
 > A fully intelligent backbone powering real-time parametric insurance — self-improving, fraud-resistant, and rider-aware.
 
-## 6. 📱 Platform Strategy: Web vs. Mobile
-**Decision:** [Insert Choice, e.g., Mobile-First Progressive Web App (PWA) or Native Mobile App]
-**Justification:** Delivery partners operate exclusively on their smartphones while on the move. A mobile-optimized interface ensures rapid onboarding, real-time push notifications for weather warnings, and immediate visibility into coverage status and payouts.
+## 6. Platform Strategy: Web vs Mobile
+
+**Decision:** Mobile-First Progressive Web App (PWA)
+
+---
+
+### Justification
+
+Delivery partners operate entirely on smartphones in real-time, on the move. Requiring a native app download introduces friction, storage constraints, and onboarding delays.
+
+A mobile-first PWA provides the best balance between accessibility and functionality:
+
+- No installation required — instant onboarding via link
+- Works on low-end Android devices with slow networks
+- Can be added to the home screen for an app-like experience
+- Supports push notifications for disruption alerts and payout confirmations
+- Lightweight and optimized for gig worker usage patterns
+
+---
+
+### Web vs Mobile Trade-off
+
+| Feature | Native App | PWA |
+|---------|-----------|-----|
+| Installation Required | Yes | No |
+| Performance | High | High (optimized) |
+| Offline Support | Yes | Partial |
+| Push Notifications | Yes | Yes |
+| Development Time | High | Low |
+| Accessibility | Limited | Universal (via URL) |
+
+---
+
+### Platform Design
+
+- **Worker Interface** — Mobile PWA (primary usage)
+- **Admin Dashboard** — Desktop Web (analytics and monitoring)
+
+---
+
+### Strategic Advantages
+
+- Eliminates onboarding friction, leading to higher adoption
+- Faster deployment with no app store dependency
+- Seamless updates with no action required from the user
+- Ideal for demo and production — instant access via URL
 
 ## 7. 🛠️ Technical Stack
 * **Frontend User Interface:** React.js (for a highly responsive, component-driven web/mobile dashboard).
