@@ -687,12 +687,92 @@ A mobile-first PWA provides the best balance between accessibility and functiona
 - Faster deployment with no app store dependency
 - Seamless updates with no action required from the user
 - Ideal for demo and production — instant access via URL
+  
 
-## 7. 🛠️ Technical Stack
-* **Frontend User Interface:** React.js (for a highly responsive, component-driven web/mobile dashboard).
-* **Backend & API Orchestration:** Python (FastAPI/Flask) for robust, high-performance data handling.
-* **AI/ML Engine:** PyTorch / Scikit-learn for risk modeling and Graph Neural Networks for anomaly detection. Large Language Models (LLMs) to assist with unstructured data parsing and automated user support.
-* **External Integrations:** OpenWeatherMap API (Mocks for environmental data), Simulated Payment Gateways (Razorpay/Stripe sandbox).
+## 7. Technical Stack
+
+---
+
+### Frontend
+
+| Technology | Purpose |
+|------------|---------|
+| React.js + Vite | Component-based UI with fast builds |
+| Tailwind CSS | Responsive, mobile-first styling |
+| PWA | App-like experience without installation |
+| React Query | Data fetching and client-side caching |
+
+---
+
+### Backend & API Layer
+
+| Technology | Purpose |
+|------------|---------|
+| Node.js + Express | Core application logic and API orchestration |
+| FastAPI (Python) | ML model serving and inference endpoints |
+| JWT Authentication | Secure session handling |
+
+---
+
+### AI / ML Engine
+
+| Model / Tool | Purpose |
+|--------------|---------|
+| XGBoost | Dynamic premium calculation and risk scoring |
+| Prophet / LSTM | Time-series disruption prediction |
+| Isolation Forest | Anomaly detection and fraud prevention |
+| scikit-learn | Core ML utilities and pipelines |
+| MLflow | Experiment tracking and model versioning |
+
+---
+
+### External APIs & Data Sources
+
+| API | Data Provided |
+|-----|--------------|
+| Open-Meteo | Weather data (rain, heat index) |
+| CPCB / OpenAQ | Air quality index (AQI) |
+| NewsAPI | Bandh and curfew detection |
+| Downdetector (mocked) | Platform outage signals |
+| Zomato / Swiggy (mocked) | Order volume and drop signals |
+| GPS Activity Feed (mocked) | Rider activity validation |
+
+---
+
+### Database & Caching
+
+| Technology | Purpose |
+|------------|---------|
+| PostgreSQL | Structured storage for users, policies, and claims |
+| Redis | Real-time trigger caching and fast lookups |
+
+---
+
+### Payments & Integrations
+
+| Service | Purpose |
+|---------|---------|
+| UPI / Razorpay (sandbox) | Instant payout simulation |
+| DigiLocker API | KYC verification |
+
+---
+
+### Authentication & Security
+
+| Technology | Purpose |
+|------------|---------|
+| Firebase Auth | User authentication |
+| JWT Tokens | Secure API communication |
+
+---
+
+### Infrastructure & Deployment
+
+| Tool | Purpose |
+|------|---------|
+| Docker | Containerized deployment |
+| GitHub Actions | CI/CD pipeline |
+| Render / Railway | Backend hosting and deployment |
 
 ## 8. 🗺️ 6-Week Development Plan
 * **Weeks 1-2 (Phase 1):** Ideation, persona definition, workflow architecture, and initial repository setup. *(Current)*
