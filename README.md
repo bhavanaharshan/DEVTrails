@@ -4,20 +4,6 @@
 
 > **Brief Pitch:** [Project Name] is a parametric insurance platform designed exclusively to protect the livelihoods of [Insert Specific Persona, e.g., Q-Commerce Delivery Partners like Zepto/Blinkit] from uncontrollable external disruptions. We ensure that when the weather stops, their income doesn't.
 
----
-
-## 📑 Table of Contents
-1. [The Persona & The Problem](#1-the-persona--the-problem)
-2. [Coverage Scope & The Golden Rules](#2-coverage-scope--the-golden-rules)
-3. [Persona-Based Scenarios & Workflow](#3-persona-based-scenarios--workflow)
-4. [Parametric Triggers & The Financial Model](#4-parametric-triggers--the-financial-model)
-5. [AI & Machine Learning Architecture](#5-ai--machine-learning-architecture)
-6. [Platform Strategy: Web vs. Mobile](#6-platform-strategy-web-vs-mobile)
-7. [Technical Stack](#7-technical-stack)
-8. [6-Week Development Plan](#8-6-week-development-plan)
-9. [Phase 1 Video Pitch](#9-phase-1-video-pitch)
-
----
 # 👥 Persona & Scenario Analysis
 
 ## Why Food Delivery Workers?
