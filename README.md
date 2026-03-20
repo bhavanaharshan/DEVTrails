@@ -924,5 +924,7 @@ A structured roadmap to build a **parametric, AI-driven income protection system
 ---
 
 
-## 9. 🎥 Phase 1 Video Pitch
-[Insert link to the 2-minute publicly accessible video outlining the strategy, execution plan, and minimal scope prototype.]
+## 🎥 Demo Video
+
+- [Explanation Video](https://studio.youtube.com/video/mlTOR74VyU4/edit)
+- [ Prototype ](https://www.youtube.com/watch?v=mlTOR74VyU4)
