@@ -538,108 +538,175 @@ The pool is protected before it drains, not after.
 
 *GPS spoofing beats a GPS-only system. It does not beat five independent signal 
 layers that all have to agree before a rupee leaves the pool.*
-## 5. 🧠 AI & Machine Learning Architecture
-
-Our system leverages machine learning to enable **risk-aware pricing, accurate disruption detection, and fraud prevention**, ensuring both sustainability and trust.
 
 ---
+# 🧠 AI & Machine Learning Architecture
 
-### 🔹 Dynamic Premium Engine (Risk Modeling)
+> GigShield's intelligence layer does three things: **price risk fairly each week**, **predict disruptions before they hit**, and **validate every trigger before a payout fires**.
+> Every model is purpose-built for our 7 confirmed scenarios. Every model retrains weekly on real outcomes.
+> **Every data source is free, open, or government-published — zero paid API dependency.**
 
-We use a supervised learning model (e.g., XGBoost) to estimate **expected loss per rider per week**.
+---
 
 ```
-Expected Loss = f(Weather Patterns, Zone Risk, Shift Timing, Historical Claims, Seasonality)
+┌──────────────────────────────────────────────────────────────────────┐
+│                       GIGSHIELD ML PIPELINE                          │
+│                                                                      │
+│  Real-world data  →  6 models  →  Decisions  →  Payouts             │
+│  (IMD, CPCB, GPS,    (Sunday)     (real-time)    (UPI, 60 sec)      │
+│   all free APIs)                                                     │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-- Trained on historical weather, disruption, and payout data
-- Outputs a **risk score** that drives the weekly premium
-- Enables **personalized, location-aware pricing**
-- Lower premiums for historically safer zones
+
+## The Six Models
 
 ---
 
-### 🔹 Risk Zone Classifier
+### 1 · Earnings DNA Profiler — `Gradient Boosted Regressor`
 
-A classification model (e.g., Random Forest) assigns **risk levels to delivery zones**, updated weekly to reflect changing environmental conditions.
-
-| Input Feature         | Output          |
-|-----------------------|-----------------|
-| Rainfall history      | 🟢 Low Risk     |
-| Flood / AQI data      | 🟡 Medium Risk  |
-| Past disruption freq. | 🔴 High Risk    |
-
----
-
-### 🔹 Disruption Prediction Model
-
-A time-series forecasting model (e.g., Prophet / LSTM) predicts **future disruption likelihood** using:
-
-- Weather forecasts
-- Seasonal trends
-- Historical event patterns
-
-This enables:
-- Proactive rider alerts (e.g., *"Heavy rain expected Wednesday"*)
-- Better risk planning and forward-looking pricing
-
----
-
-### 🔹 Fraud Detection Engine
-
-We use an unsupervised model (e.g., Isolation Forest) to detect **suspicious claims**. The engine flags:
-
-- Claims without matching weather or API signals
-- Duplicate claims across multiple accounts
-- Sudden claim spikes within a small GPS cluster
-
-This ensures system integrity and prevents misuse.
-
----
-
-### 🔹 Claim Trigger Validator
-
-A hybrid **rule-based + ML confidence system** validates every event before payout is released.
-
-- Requires confirmation from **≥ 2 independent data sources**
-- Uses a confidence scoring threshold:
+**What it does:** Builds a personalised income fingerprint for every rider at onboarding — the anchor for every payout calculation.
 
 ```
-If Confidence Score ≥ 0.85 → Auto Approve
-Else                        → Manual Review Queue
+Earnings DNA = f(Shift window, Avg daily orders, Zone, Platform,
+                 Weekly slab tier, Historical earnings variance)
 ```
 
-This balances automation with reliability.
+- Estimates the rider's true average daily income — used as the payout base
+- Detects if declared income is an outlier vs zone-average (fraud guard at source)
+- Powers the **Slab Shield**: predicts whether a disruption will push the rider below their weekly bonus threshold and adds that amount to the payout
+
+> Without this model, every payout is a flat guess. With it, Ravi in Mumbai gets exactly the payout his disrupted evening shift warranted — not a generic ₹200.
 
 ---
 
-### 🔁 Continuous Learning Loop
+### 2 · Dynamic Premium Engine — `XGBoost`
 
-The system improves over time through a feedback loop, incorporating:
-
-- Actual payouts vs. predicted risk
-- New disruption events
-- Updated rider behavior patterns
+**What it does:** Estimates expected income loss per rider per week and converts it into a fair, personalised premium.
 
 ```
-New Premium ∝ Actual Loss / Expected Loss
+Expected Loss = f(Weather risk, AQI risk, Fog probability, Zone risk,
+                  Shift timing, Platform factor, Historical claims,
+                  Congestion index, Seasonality)
 ```
 
-Models are **retrained weekly** to ensure fair pricing, improved prediction accuracy, and long-term sustainability.
+- Trained on 10+ years of IMD, CPCB, and disruption event data — all freely available
+- One model, all 7 scenarios — each scenario's signals are separate feature columns
+- Outputs a weekly risk score (0.0 → 1.0) that drives the premium multiplier
+- Runs every **Sunday at midnight** — premium confirmed in DB by **6 AM**
+
+| Scenario | Key Feature Columns | Free Data Source |
+|---|---|---|
+| 🌡️ Extreme Heat | `heat_index_forecast`, `imd_red_alert_flag` | Open-Meteo + IMD |
+| 🌧️ Heavy Rain | `rainfall_mm_hr_forecast`, `zone_flood_history` | Open-Meteo + IMD |
+| 🌫️ Dense Fog | `fog_advisory_flag`, `visibility_forecast_m` | IMD fog bulletins |
+| 😷 Severe AQI | `cpcb_aqi_forecast`, `aqi_severe_days_trailing_4wk` | CPCB + OpenAQ |
+| 🚫 Bandh / Curfew | `city_bandh_frequency_ytd`, `political_event_calendar` | GNews API (free) |
+| 🚧 Congestion | `avg_travel_time_pct_above_baseline`, `active_construction_zones` | OSRM (open-source) |
+| 💀 Platform Outage | `platform_downtime_hrs_trailing_4wk`, `downdetector_spike_flag` | Downdetector (free) |
 
 ---
 
-### 🎯 Summary
+### 3 · Risk Zone Classifier — `Random Forest`
 
-| Component                  | Model Type              | Purpose                          |
-|----------------------------|-------------------------|----------------------------------|
-| Dynamic Premium Engine     | XGBoost (Supervised)    | Risk-based weekly pricing        |
-| Risk Zone Classifier       | Random Forest           | Zone-level risk categorization   |
-| Disruption Prediction      | Prophet / LSTM          | Forecast future disruptions      |
-| Fraud Detection Engine     | Isolation Forest        | Anomaly & duplicate detection    |
-| Claim Trigger Validator    | Rule-based + ML Hybrid  | Auto-approve or flag for review  |
+**What it does:** Labels every delivery zone 🟢 Low / 🟡 Medium / 🔴 High risk for the coming week — hyperlocal pricing, not city-wide averages.
 
-> A fully intelligent backbone powering real-time parametric insurance — self-improving, fraud-resistant, and rider-aware.
+| Input Feature | Scenario | Free Source |
+|---|---|---|
+| Rainfall + flood history (3yr) | Rain, Fog | IMD historical archive |
+| AQI breach frequency (seasonal) | Severe AQI | CPCB / OpenAQ |
+| Fog advisory days per winter | Dense Fog | IMD fog bulletin archive |
+| Bandh / curfew event history | Bandh / Curfew | GNews API scraped history |
+| Road congestion vs OSRM baseline | Congestion | OSRM (open-source routing) |
+| Platform outage frequency by city | Platform Outage | Downdetector history |
+| Heat index exceedance days per summer | Extreme Heat | Open-Meteo historical |
+
+A rider in Kurla (Mumbai) near a flood-prone zone pays a different premium than one in Powai — same city, different zone label.
+
+---
+
+### 4 · Disruption Prediction Model — `Prophet`
+
+**What it does:** Forecasts the probability of each of the 7 triggers firing in the next 7 days.
+
+```
+P(trigger, week) > 0.40  →  seasonal multiplier rises
+                          →  Sunday rider alert fires
+                          →  uninsured riders nudged to subscribe
+```
+
+**Why Prophet (not LSTM):** Prophet works well from day one with limited data using explicit seasonality components. LSTM requires large sequential datasets a new platform won't have at launch. Prophet's yearly, weekly, and holiday effects are a natural fit for our scenario types.
+
+Prophet captures per scenario:
+- 🌡️ **Heat** — May–June yearly peak, IMD red-alert streaks
+- 🌧️ **Rain** — monsoon windows (Jun–Sep), zone-level flood recurrence
+- 🌫️ **Fog** — Nov–Feb North India season, visibility decay patterns
+- 😷 **AQI** — Oct–Jan Delhi-NCR smog season
+- 🚫 **Bandh** — political event calendar, day-of-week frequency patterns
+- 🚧 **Congestion** — Metro construction phase timelines, morning/evening peaks
+- 💀 **Outage** — platform incident history, day-of-week and peak-hour patterns
+
+Sunday notification to Arjun in Lucknow:
+> *"Dense fog likely Wednesday night. Evening cover active. Your premium this week: ₹54."*
+
+---
+
+### 5 · Claim Trigger Validator — `Rule engine + ML hybrid`
+
+**What it does:** Confirms every real-world event meets the trigger threshold before any payout fires. Each scenario has its own rule set — all using free APIs.
+
+```
+Step 1 — Hard threshold check  (rule-based, instant)
+         S1 Heat:       IMD Red Alert + Open-Meteo heat index ≥ 44°C for 2+ hrs
+         S2 Rain:       Open-Meteo rainfall ≥ 25mm/hr for 90+ min in zone
+         S3 Fog:        IMD Dense Fog advisory + visibility < 100m for 3+ hrs
+         S4 AQI:        CPCB / OpenAQ AQI ≥ 400 for 3+ consecutive hours
+         S5 Bandh:      GNews API 'bandh'/'curfew' in 3+ sources
+                        AND platform order-drop ≥ 65% (mock API)
+         S6 Congestion: OSRM travel time > 200% of zone historical mean
+         S7 Outage:     Downdetector 500+ reports AND outage > 45 min peak hrs
+
+Step 2 — Dual-source confirmation  (≥ 2 independent sources must agree)
+         Prevents a single API failure from misfiring a payout
+
+Step 3 — ML confidence score  (0.0 – 1.0 across all signals)
+         Score ≥ 0.85  →  Auto-approve · UPI fires in 60 sec
+         Score < 0.85  →  Human review queue · 2-hr SLA
+```
+
+> S5 (Bandh) is the most complex — GNews keyword signal **and** platform order-drop must both fire. Neither alone is sufficient. This is what makes social disruption claims fraud-proof.
+
+---
+
+### 6 · Continuous Learning Loop — `Weekly retraining`
+
+**What it does:** Closes the feedback loop — actual payouts teach all models what they got wrong.
+
+```
+New Premium ∝ Actual Loss / Expected Loss  (per zone, per scenario)
+
+Actual loss > expected  →  risk score nudges up next week
+Actual loss < expected  →  risk score nudges down next week
+Change capped at ±15%   →  no premium shock week-to-week
+```
+
+Every Sunday the pipeline ingests for each of the 7 scenarios:
+- Which triggers fired, in which zones, for how many riders
+- Were Prophet forecasts close to actual event frequency?
+- Which zones had the largest prediction error? (targeted retraining)
+- Did new congestion zones emerge from OSRM delta? (Random Forest update)
+
+Over time **basis risk shrinks** — the gap between predicted and actual tightens every monsoon, every fog winter, every heatwave summer.
+
+---
+
+<div align="center">
+
+*Every scenario has a model. Every model has a free data source.*
+*Every Sunday, the whole system gets a little more accurate.*
+
+</div>
+
 
 ## 6. Platform Strategy: Web vs Mobile
 
