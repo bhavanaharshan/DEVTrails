@@ -187,98 +187,166 @@ Zomato's server went down on a Friday evening in October 2021 — peak dinner ru
 * ✅ **Income Loss Protection Only:** This platform is strictly designed as a safety net for lost hours and unearned wages due to external events.
 * 🚫 **Exclusions:** We strictly exclude any coverage for health issues, life insurance, accidents, or vehicle repairs.
 
-## 3. 🔄 Persona-Based Scenarios & Workflow
-**Scenario: The "Monsoon Washout"**
-1.  **Onboarding:** A delivery partner signs up and opts into the weekly coverage plan based on their primary operating zone.
-2.  **The Event:** A sudden, severe thunderstorm hits the partner's operating zone at 6 PM (peak earning hours).
-3.  **The Trigger:** Our system pings local Weather APIs and Traffic data. It detects rainfall exceeding the safe threshold and widespread zone closures.
-4.  **The Action:** The policy is parametrically triggered. An automated claim is initiated without the user needing to file a manual report.
-5.  **The Payout:** The system calculates the estimated lost income for those specific hours and processes an instant payout to the partner's linked wallet.
 
-## 4. Insurance Premium & Payout Model
 
-A risk-adjusted, income-based micro-insurance framework for gig economy workers, designed to be affordable, dynamic, and ML-powered.
+
+---
+# 💰 Weekly Premium & Payout Model
+
+> A **risk-adjusted, income-based** micro-insurance framework — affordable, dynamic, and ML-powered.
+> Premiums are computed **every Sunday** and debited **every Monday at 9 AM** via UPI auto-mandate.
 
 ---
 
-## 💸 Premium Calculation
+## Why Weekly?
 
-Premiums are calculated in three steps:
+Gig workers earn and spend weekly — not monthly or annually. A ₹500/month product feels like a debt. A ₹69/week product feels like a choice.
 
-### **Step 1 — Base Premium**
+| Traditional Insurance | GigShield |
+|---|---|
+| Annual or monthly premium | **Weekly** — aligned with earnings cycle |
+| Fixed price, always | **Dynamic** — cheaper in safe weeks |
+| Claim form + wait | **Auto-payout** — 60 seconds, no form |
+| One-size payout | **Income-anchored** — based on your actual earnings |
 
-The base premium is a percentage of the worker's weekly income:
-<br>
-```Base Premium = Weekly Income × Base Rate```
-
-- Base Rate ≈ **1.5% – 2%**
 
 ---
 
-### **Step 2 — Adjusted Premium**
+## 🧮 How Premium Is Calculated — 3 Steps
 
-The base premium is multiplied by a set of risk factors:
+### Step 1 — Base Premium
+```
+Base Premium = Weekly Income × Base Rate (1.5% – 2%)
+```
+Anchored to the worker's **declared weekly earnings** at onboarding.
+ML cross-checks against zone average to prevent inflation.
 
-```Adjusted Premium = Base Premium × City Risk × Shift Factor × Platform Factor × Zone Factor```
-
-- **City Risk** → location-based disruption history  
-- **Shift Factor** → risk based on working hours  
-- **Platform Factor** → platform-specific variability  
-- **Zone Factor** → hyperlocal area risk  
-
----
-
-### **Step 3 — Final Premium (Affordability Cap)**
-
-The adjusted premium is capped to ensure affordability:
-
-```Final Premium = min(max(Adjusted Premium, 29), 99)```
-
-- Premium range: **₹29 – ₹99 per week**
+> 📊 Real earnings baseline (Zomato/Swiggy 2025): ₹102/hr average · ₹2,800–6,500/week depending on hours
 
 ---
 
-## 💰 Payout Calculation
+### Step 2 — Risk Multipliers
+```
+Adjusted Premium = Base Premium × City Risk × Shift Factor × Platform Factor × Zone Factor
+```
 
-When a trigger event occurs, payout is based on the worker's daily income:
-
-```Daily Income = Weekly Income / 7```
-
-```Daily Payout = Daily Income × Coverage Percentage```
-
-```Max Weekly Payout = Daily Payout × Max Trigger Days```
-
-### **Key Parameters**
-
-- Coverage = **60% – 80% of daily income**  
-- Max Trigger Days = **3 days per week**
+| Multiplier | Range | Driven By | Updates |
+|---|---|---|---|
+| 🏙️ City Risk | 0.85× – 1.40× | IMD zone history + CPCB AQI records | Monthly |
+| 🌙 Shift Factor | 0.85× – 1.20× | Peak-hour vs morning shift exposure | At onboarding |
+| 📱 Platform Factor | 1.00× – 1.10× | Outage frequency per platform | Weekly |
+| 📍 Zone Factor | 0.80× – 1.30× | Hyperlocal flood / congestion history | Weekly |
 
 ---
 
-## 🔁 Dynamic Premium Adjustment
+### Step 3 — Affordability Cap
+```
+Final Premium = min(max(Adjusted Premium, ₹29), ₹99)
+```
 
-Premiums are recalibrated weekly based on actual vs expected loss:
-
-```New Premium = Old Premium × (Actual Loss / Expected Loss)```
-
-
-- If actual loss > expected → premium increases  
-- If actual loss < expected → premium decreases  
-
-👉 Ensures fairness and long-term sustainability  
+**Hard floor ₹29** — always affordable, even for part-time workers.
+**Hard ceiling ₹99** — never more than ~2.5% of a full-time weekly income.
 
 ---
 
-## 🤖 ML-Based Expected Loss
+## 💸 Payout Calculation
 
-Expected loss is estimated using machine learning models (e.g., XGBoost):
+```
+Daily Income    = Weekly Income ÷ 7
+Daily Payout    = Daily Income × Coverage % (60% – 80%)
+Max Weekly Payout = Daily Payout × Max Trigger Days (3)
+```
 
+### Coverage Tiers
 
-```Expected Loss = f(Rain, Zone Risk, Shift Pattern, Historical Claims, Seasonality)```
+| Tier | Weekly Premium | Coverage | Triggers Covered | Max Weekly Payout |
+|---|---|---|---|---|
+| 🟡 Basic | ₹29 – ₹49 | 60% daily income | Any 3 of 7 | ~₹720 |
+| 🔵 Standard ✦ | ₹49 – ₹79 | 70% daily income | All 7 + Slab Shield | ~₹1,400 |
+| 🔴 Full Shield | ₹79 – ₹99 | 80% daily income | All 7 + Platform Bridge | ~₹2,400 |
 
+> **Slab Shield** — unique to GigShield. If a disruption knocks the rider below their weekly incentive threshold, the missed platform bonus is added to the payout. No other product in India covers this.
 
-- Trained on **historical claims + environmental data**  
-- Predicts **future payout risk before each week**
+---
+
+## 🔁 Dynamic Premium Adjustment (Weekly Recalibration)
+
+```
+New Premium = Old Premium × (Actual Loss / Expected Loss)
+```
+
+- Actual loss > expected → premium nudges up next week
+- Actual loss < expected → premium nudges down next week
+- Change is capped at ±15% per week to avoid premium shock
+
+This means a dry, uneventful week in November **costs less**. A monsoon week in July **costs more**. Workers see exactly why on Sunday morning.
+
+---
+
+## 🤖 ML-Powered Expected Loss Engine
+
+```
+Expected Loss = f(Rain, AQI, Zone Risk, Shift Pattern, Historical Claims, Seasonality)
+```
+
+| Model | Role | Data Source |
+|---|---|---|
+| **XGBoost** | Weekly risk score per zone | 10+ yrs IMD + CPCB + claims history |
+| **Prophet** | Disruption probability forecast | IMD 7-day forecast + seasonal index |
+| **Isolation Forest** | Fraud / anomaly detection | GPS + claim pattern analysis |
+
+**Every Sunday, the pipeline runs:**
+
+```
+1. Pull forecasts  →  IMD, CPCB, IOC fuel prices, Downdetector history
+2. Score zones     →  XGBoost outputs risk score 0.0 – 1.0 per scenario
+3. Forecast week   →  Prophet: if P(trigger) > 0.4, seasonal multiplier rises
+4. Compute premium →  Apply all factors, clamp ₹29–99, write to DB by 6 AM
+5. Notify worker   →  "Rain likely Wed–Thu. Your cover this week: ₹74. You're protected."
+6. Auto-debit      →  UPI mandate fires Monday 9 AM. Policy live instantly.
+```
+
+---
+
+## ⚡ Trigger → Payout in 60 Seconds
+
+```
+API Data (every 15 min)
+        ↓
+Threshold Check  →  Does event meet trigger criteria?
+        ↓
+Fraud Engine     →  GPS active in zone? No anomaly? No duplicate?
+        ↓
+Confidence Score →  ≥ 0.85  →  Auto-approve & pay via UPI
+                 →  < 0.85  →  Human review queue (2-hr SLA)
+        ↓
+Worker notified: "₹680 credited to your UPI. Stay safe."
+```
+
+No form. No call. No waiting.
+## 🛡️ Insurer Guardrails — Staying Sustainable
+
+| Guardrail | How It Works |
+|---|---|
+| **3-day payout cap** | Max 3 trigger events paid per rider per week |
+| **Zone pool model** | Riders in same zone share a weekly pool; reinsurance backstop covers overflow |
+| **Adverse selection lock** | Tier upgrades blocked 24 hrs before a forecast trigger fires |
+| **3-day waiting period** | Weather claims: 3-day wait for new policyholders. Outage claims: none. |
+| **Income anchor** | Payout based on onboarding-declared income, not same-day self-report |
+| **Target loss ratio** | 55–65% — standard for parametric micro-products globally |
+
+---
+
+<div align="center">
+
+**The GigShield Premium Promise**
+
+*Pay ₹29–₹99 this week.*
+*If disruption hits — ₹280 to ₹2,400 lands in your wallet.*
+*Automatically. Instantly. No paperwork.*
+
+</div>
+
 
 ---
 
