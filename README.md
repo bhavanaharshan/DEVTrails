@@ -926,5 +926,5 @@ A structured roadmap to build a **parametric, AI-driven income protection system
 
 ## 🎥 Demo Video
 
-- [Prototype]([https://studio.youtube.com/video/mlTOR74VyU4/edit](https://youtube.com/shorts/ifL2OmpAI_w?si=neqcSdSq_zBD35xn))
+- [Prototype](https://youtube.com/shorts/ifL2OmpAI_w?si=neqcSdSq_zBD35xn)
 - [Explanation Video](https://www.youtube.com/watch?v=mlTOR74VyU4)
