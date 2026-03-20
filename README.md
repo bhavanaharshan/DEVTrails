@@ -841,6 +841,8 @@ A mobile-first PWA provides the best balance between accessibility and functiona
 | GitHub Actions | CI/CD pipeline |
 | Render / Railway | Backend hosting and deployment |
 
+## 🚀 Workflow Block Diagram
+![Workflow Diagram](Flow.jpg)
 ## 📌 6-Week Development Plan
 
 A structured roadmap to build a **parametric, AI-driven income protection system** for gig workers, covering design, development, automation, and deployment.
