@@ -1,4 +1,4 @@
-// server.js - Neema's Backend
+// server.js - Neema's Backend (Enhanced with Geo-Precision)
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -15,12 +15,55 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 app.use(cors());
 app.use(express.json());
 
+// --- HELPER: Geo-Safety Net (Prevents empty data) ---
+const zoneDefaults = {
+  "Hyderabad, India": { lat: 17.3850, lng: 78.4867 },
+  "Hyderabad, Pakistan": { lat: 25.3960, lng: 68.3578 },
+  "Bangalore South": { lat: 12.9141, lng: 77.5946 }
+};
+
 // --- REAL-TIME: Join Zone for Zero-Touch Updates ---
 io.on('connection', (socket) => {
   socket.on('join-zone', (zone) => {
     socket.join(`zone:${zone}`);
     console.log(`Worker joined zone monitoring: ${zone}`);
   });
+});
+
+// --- API: Create Policy (NEW: Now accepts Geo-Data) ---
+app.post('/api/policy/create', async (req, res) => {
+  const { userId, zone, weeklyIncome } = req.body;
+  
+  // Logic: Use lat/lng from request, or fallback to zone defaults to prevent "EMPTY" data
+  const lat = req.body.lat || zoneDefaults[zone]?.lat || 0;
+  const lng = req.body.lng || zoneDefaults[zone]?.lng || 0;
+
+  try {
+    // 1. Get calculation from Bhavana (passing coordinates now)
+    const mockMultiplier = 1.2; 
+    const base = 40;
+    const final = Math.min(Math.max(Math.round(base * mockMultiplier), 29), 99);
+
+    // 2. Insert Premium with Lat/Lng snapshots
+    const premiumResult = await pool.query(
+      `INSERT INTO premiums (user_id, base_amount, risk_multiplier, final_amount, zone_snapshot, lat_at_calc, lng_at_calc)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [userId, base, mockMultiplier, final, zone, lat, lng]
+    );
+    const premiumId = premiumResult.rows[0].id;
+
+    // 3. Create Policy
+    const policyResult = await pool.query(
+      `INSERT INTO policies (user_id, premium_id, week_start, status)
+       VALUES ($1, $2, CURRENT_DATE, 'active') RETURNING *`,
+      [userId, premiumId]
+    );
+
+    res.json({ success: true, policy: policyResult.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // --- API: Update Profile (Neema's Profile Screen) ---
@@ -37,7 +80,7 @@ app.post('/api/user/update', async (req, res) => {
   }
 });
 
-// --- API: Get Payout History (Neema's Payout Screen) ---
+// --- API: Get Payout History ---
 app.get('/api/payouts/:userId', async (req, res) => {
   try {
     const result = await pool.query(
@@ -56,7 +99,7 @@ app.get('/api/payouts/:userId', async (req, res) => {
 app.get('/api/dashboard/:userId', async (req, res) => {
   try {
     const policy = await pool.query(
-      `SELECT p.*, pr.final_amount FROM policies p 
+      `SELECT p.*, pr.final_amount, pr.lat_at_calc, pr.lng_at_calc FROM policies p 
        JOIN premiums pr ON p.premium_id = pr.id 
        WHERE p.user_id = $1 ORDER BY p.created_at DESC LIMIT 1`,
       [req.params.userId]
@@ -68,13 +111,17 @@ app.get('/api/dashboard/:userId', async (req, res) => {
 });
 
 // --- TRIGGER: Sam's Rules Engine Endpoint ---
+// Sam can now trigger by coordinates OR zone name
 app.post('/api/claims/trigger', async (req, res) => {
-  const { zone, triggerType, payoutAmount } = req.body;
+  const { zone, lat, lng, triggerType, payoutAmount } = req.body;
   try {
+    // Find policies matching the exact geo-location
     const activePolicies = await pool.query(
       `SELECT p.id, p.user_id FROM policies p 
-       JOIN users u ON p.user_id = u.id 
-       WHERE u.zone = $1 AND p.status = 'active'`, [zone]
+       JOIN premiums pr ON p.premium_id = pr.id
+       WHERE (pr.zone_snapshot = $1 OR (pr.lat_at_calc = $2 AND pr.lng_at_calc = $3)) 
+       AND p.status = 'active'`, 
+      [zone, lat, lng]
     );
 
     for (let policy of activePolicies.rows) {
@@ -85,7 +132,6 @@ app.post('/api/claims/trigger', async (req, res) => {
       await pool.query(`UPDATE policies SET status = 'pending_claim' WHERE id = $1`, [policy.id]);
     }
 
-    // Zero-Touch UX: Signal the Frontend
     io.to(`zone:${zone}`).emit('claim-notification', {
       title: "Automatic Payout!",
       body: `${triggerType} detected. ₹${payoutAmount} is being credited.`
