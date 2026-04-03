@@ -1,4 +1,4 @@
--- GigShield Database Schema
+-- GigShield Database Schema (Updated for Geo-Precision)
 -- Run this to reset the database: psql -U postgres -d gigshield -f schema.sql
 
 DROP TABLE IF EXISTS claims;
@@ -10,13 +10,15 @@ DROP TABLE IF EXISTS users;
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(100),
-  zone VARCHAR(100),
+  zone VARCHAR(100),          -- Display name (e.g., "Hyderabad, India")
+  lat DECIMAL(10, 8),         -- Exact Latitude
+  lng DECIMAL(11, 8),         -- Exact Longitude
   platform VARCHAR(50),
   weekly_income NUMERIC,
   address TEXT,
   mobile VARCHAR(20),
   avatar_url TEXT,
-  payout_qr TEXT, -- Stores base64 or URL of the QR
+  payout_qr TEXT, 
   firebase_uid VARCHAR(100) UNIQUE,
   created_at TIMESTAMP DEFAULT NOW()
 );
@@ -29,6 +31,8 @@ CREATE TABLE premiums (
   risk_multiplier NUMERIC,
   final_amount NUMERIC CHECK (final_amount BETWEEN 29 AND 99),
   zone_snapshot VARCHAR(100),
+  lat_at_calc DECIMAL(10, 8), -- Snapshot of lat used for ML calculation
+  lng_at_calc DECIMAL(11, 8), -- Snapshot of lng used for ML calculation
   calculated_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -39,7 +43,7 @@ CREATE TABLE policies (
   premium_id UUID REFERENCES premiums(id),
   week_start DATE,
   coverage_tier VARCHAR(20),
-  status VARCHAR(20) DEFAULT 'active', -- 'active', 'pending_claim', 'paid'
+  status VARCHAR(20) DEFAULT 'active', 
   created_at TIMESTAMP DEFAULT NOW()
 );
 
