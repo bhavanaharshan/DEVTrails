@@ -26,17 +26,19 @@ export async function fetchWeather(lat, lon) {
 
   // ── LIVE PATH ──────────────────────────────────────────────────────────────
   const url =
-    `https://api.open-meteo.com/v1/forecast` +
-    `?latitude=${lat}&longitude=${lon}` +
-    `&current=temperature_2m,precipitation`;
+  `https://api.open-meteo.com/v1/forecast` +
+  `?latitude=${lat}&longitude=${lon}` +
+  `&current=temperature_2m,precipitation,visibility,weathercode`;
 
   const { data } = await axios.get(url);
   const current  = data.current;
 
   return {
-    precipitation: current.precipitation,  // mm
-    temperature:   current.temperature_2m, // °C
-  };
+  precipitation: current.precipitation,
+  temperature:   current.temperature_2m,
+  visibility:    current.visibility,      // metres
+  weathercode:   current.weathercode,     // WMO code
+};
 }
 
 // ── 2. Air Quality ────────────────────────────────────────────────────────────
