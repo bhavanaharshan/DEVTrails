@@ -45,12 +45,15 @@ class PayoutResponse(BaseModel):
     razorpay_status: str
 class TriggerCheckRequest(BaseModel):
     user_id: str
-    zone: str
-    city: str
+    zone: Optional[str] = None
+    city: Optional[str] = None
+    lat: Optional[float] = None
+    lon: Optional[float] = None
     platform: str
     weekly_income: float
     shift_window: str
     tier: str = "standard"
+    trigger_type: Optional[str] = None  # "weather" | "aqi" | "outage"
 
 class ScenarioResult(BaseModel):
     scenario: str

@@ -1,14 +1,11 @@
-# Threshold definitions from README
-# These are the exact trigger criteria for each scenario
-
 THRESHOLDS = {
-    "rain":       0.50,   # rainfall >= 25mm/hr for 90+ min
-    "heat":       0.45,   # IMD Red Alert + heat index >= 44°C
-    "aqi":        0.55,   # CPCB AQI >= 400 for 3+ hrs
-    "fog":        0.50,   # visibility < 100m for 3+ hrs
-    "bandh":      0.45,   # 3+ news sources confirm bandh
-    "congestion": 0.60,   # travel time > 200% of baseline
-    "outage":     0.50,   # 500+ Downdetector reports
+    "rain":       0.50,
+    "heat":       0.45,
+    "aqi":        0.55,
+    "fog":        0.50,
+    "bandh":      0.45,
+    "congestion": 0.60,
+    "outage":     0.50,
 }
 
 COVERAGE_MAP = {
@@ -20,58 +17,57 @@ COVERAGE_MAP = {
 def evaluate_triggers(
     risk_scores: dict,
     weekly_income: float,
-    tier: str
+    tier: str,
+    scenarios_to_check: list = None   # None = check all 7
 ) -> dict:
-    """
-    Evaluates which scenarios have breached their trigger threshold.
-    Returns triggered scenarios, payout amounts, and confidence score.
-    """
 
-    daily_income     = weekly_income / 7
-    coverage         = COVERAGE_MAP.get(tier, 0.70)
-    daily_payout     = daily_income * coverage
+    daily_income  = weekly_income / 7
+    coverage      = COVERAGE_MAP.get(tier, 0.70)
+    daily_payout  = daily_income * coverage
 
-    triggered        = []
-    total_payout     = 0.0
-    confidence_sum   = 0.0
+    # Filter to only relevant scenarios for this trigger type
+    if scenarios_to_check is None:
+        scenarios_to_check = list(THRESHOLDS.keys())
 
-    for scenario, threshold in THRESHOLDS.items():
+    triggered      = []
+    total_payout   = 0.0
+    confidence_sum = 0.0
+
+    for scenario in scenarios_to_check:
+        threshold = THRESHOLDS.get(scenario)
+        if threshold is None:
+            continue
+
         score = risk_scores.get(scenario, 0.0)
 
         if score >= threshold:
-            # How far above threshold — drives confidence
             margin     = (score - threshold) / (1.0 - threshold)
             confidence = round(min(0.70 + (margin * 0.30), 1.0), 2)
 
-            # Slab shield bonus for standard and full tier
             payout = daily_payout
             if tier in ["standard", "full"] and scenario in ["rain", "bandh"]:
-                payout = payout * 1.15   # 15% slab shield bonus
+                payout = payout * 1.15
 
-            payout = round(payout, 2)
+            payout         = round(payout, 2)
             total_payout  += payout
             confidence_sum += confidence
 
             triggered.append({
-                "scenario":     scenario,
-                "triggered":    True,
-                "risk_score":   round(score, 2),
-                "threshold":    threshold,
+                "scenario":      scenario,
+                "triggered":     True,
+                "risk_score":    round(score, 2),
+                "threshold":     threshold,
                 "payout_amount": payout,
-                "confidence":   confidence,
+                "confidence":    confidence,
             })
 
-    # Cap at 3 triggered scenarios per week (README guardrail)
-    triggered = sorted(triggered, key=lambda x: x["risk_score"], reverse=True)[:3]
-    total_payout = round(sum(t["payout_amount"] for t in triggered), 2)
-
-    # Overall confidence = average of triggered scenario confidences
+    # Cap at 3 per week
+    triggered     = sorted(triggered, key=lambda x: x["risk_score"], reverse=True)[:3]
+    total_payout  = round(sum(t["payout_amount"] for t in triggered), 2)
     avg_confidence = round(
         confidence_sum / len(triggered) if triggered else 0.0, 2
     )
-
-    # Auto approve if confidence >= 0.85 (README threshold)
-    auto_approve = avg_confidence >= 0.85
+    auto_approve  = avg_confidence >= 0.85
 
     return {
         "triggered_scenarios": triggered,
