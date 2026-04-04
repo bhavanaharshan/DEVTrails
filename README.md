@@ -1,6 +1,10 @@
 # 🛡️ GigShield: AI-Powered Parametric Insurance for Gig Economy Delivery Partners
 
 [![Guidewire DEVTrails](https://img.shields.io/badge/Guidewire-DEVTrails_2026-blue)](#) [![Phase 1](https://img.shields.io/badge/Phase-1_Ideation-green)](#) 
+<p align="center">
+  <a href="[https://youtu.be/7FWkwuvbBSk?si=pYO2d8YBfAZOUbP-](https://youtu.be/ArMU9lqm6jU)">
+    <img src="https://img.shields.io/badge/Watch-Demo_Video-red?style=for-the-badge&logo=youtube"/>
+  </a>
 
 > **Brief Pitch:** GigShield is a parametric insurance platform designed exclusively to protect the livelihoods of food delivery workers from uncontrollable external disruptions. We ensure that when the weather stops, their income doesn't.
 
