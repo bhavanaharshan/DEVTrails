@@ -1,4 +1,4 @@
-# 🛡️ GigShield: AI-Powered Parametric Insurance for Gig Economy Delivery Partners
+# 🛡️ Jugaad Cover: AI-Powered Parametric Insurance for Gig Economy Delivery Partners
 
 [![Guidewire DEVTrails](https://img.shields.io/badge/Guidewire-DEVTrails_2026-blue)](#) [![Phase 1](https://img.shields.io/badge/Phase-1_Ideation-green)](#) 
 <p align="left">
