@@ -204,3 +204,26 @@ async def verify(req: VerifyRequest):
         req.lon2
     )
     return result
+@router.post("/verify-user")
+def verify_user_api(data: dict):
+    from services.fraud_service import verify_user
+
+    return verify_user(
+        data["user_id"],
+        data["frame_b64"],
+        data.get("relationships", [])
+    )
+@router.post("/verify-final")
+async def verify_final_api(data: dict):
+    from services.fraud_service import verify_final
+
+    return await verify_final(
+        user_id=data["user_id"],
+        frame_b64=data["frame_b64"],
+        relationships=data.get("relationships", []),
+        claim_lat=data["claim_lat"],
+        claim_lon=data["claim_lon"],
+        last_lat=data["last_lat"],
+        last_lon=data["last_lon"],
+        time_diff_minutes=data["time_diff_minutes"]
+    )

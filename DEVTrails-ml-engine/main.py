@@ -10,17 +10,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# CORS (frontend integration)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],        # allow all origins (hackathon)
-    allow_credentials=True,     # 🔥 IMPORTANT (missing in yours)
-    allow_methods=["*"],        # allow all HTTP methods
-    allow_headers=["*"],        # allow all headers
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-app.include_router(premium_router)
+# ✅ IMPORTANT: add prefix for production style
+app.include_router(premium_router, prefix="/api")
 
-# Weekly recalibration — runs every Sunday at 6 AM
+# Scheduler
 scheduler = BackgroundScheduler()
 scheduler.add_job(
     recalibrate_all_zones,
@@ -38,15 +40,11 @@ def health():
 
 @app.get("/recalibrate/run-now")
 def run_recalibration_now():
-    """
-    Manual trigger for demo purposes.
-    In production this only runs via the Sunday cron.
-    """
     results = recalibrate_all_zones()
     return {
-        "status":       "recalibration complete",
+        "status": "recalibration complete",
         "zones_updated": len(results),
-        "results":      results
+        "results": results
     }
 
 @app.on_event("shutdown")
