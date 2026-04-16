@@ -16,32 +16,58 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// --- DEBUG TEST ROUTE ---
+app.get('/api/test', (req, res) => {
+    res.json({ message: "Node.js Server is alive on port 3001!" });
+});
+
 // --- 1. ZERO-TRUST: Dynamic Location Verification ---
 app.post('/api/security/verify-location', async (req, res) => {
     const { user_id, declared_location_text, device_lat, device_lon } = req.body;
+    
     try {
-        // Step A: Ask OpenStreetMap for the "Official" coordinates of what the user typed
+        // Step A: Geocoding via Nominatim
         const geoRes = await axios.get(`https://nominatim.openstreetmap.org/search`, {
             params: { q: declared_location_text, format: 'json', limit: 1 },
-            headers: { 'User-Agent': 'GigShield-S6-Project' }
+            headers: { 'User-Agent': 'GigShield-S6-Project' },
+            timeout: 5000 // 5 second timeout
         });
 
-        if (geoRes.data.length === 0) return res.status(404).json({ secure: false, reason: "Location not found." });
+        if (!geoRes.data || geoRes.data.length === 0) {
+            return res.status(404).json({ secure: false, reason: "Location text not recognized by Map API." });
+        }
 
         const officialLat = parseFloat(geoRes.data[0].lat);
         const officialLon = parseFloat(geoRes.data[0].lon);
 
-        // Step B: Ping Priya's Python Engine for Haversine distance math
+        // Step B: Connect to Priya's Engine
+        // IMPORTANT: Ensure Priya's server is running on the SAME machine or use her IP address.
         const verifyRes = await axios.post('http://localhost:8000/api/v1/premium/verify', {
-            lat1: device_lat, lon1: device_lon,
-            lat2: officialLat, lon2: officialLon
-        });
+            lat1: device_lat, 
+            lon1: device_lon,
+            lat2: officialLat, 
+            lon2: officialLon
+        }, { timeout: 3000 });
 
         res.json(verifyRes.data);
-    } catch (err) { res.status(500).json({ secure: false, error: "Security Engine Offline" }); }
+
+    } catch (err) {
+        console.error("Connection Error:", err.message);
+        
+        // Detailed error reporting for the demo
+        let errorMsg = "Security Engine Offline";
+        if (err.code === 'ECONNREFUSED') errorMsg = "Priya's Python Server is not running on port 8000.";
+        if (err.code === 'ETIMEDOUT') errorMsg = "Priya's server is taking too long to answer.";
+        
+        res.status(500).json({ 
+            secure: false, 
+            error: errorMsg,
+            technical_details: err.message 
+        });
+    }
 });
 
-// --- 2. SYBIL DETECTION: Graph Export for Priya ---
+// --- 2. SYBIL DETECTION: Graph Export ---
 app.get('/api/admin/graph-data', async (req, res) => {
     try {
         const edges = await pool.query(`
@@ -69,18 +95,18 @@ app.post('/api/route/check-risk', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Spatial check failed" }); }
 });
 
-// --- 4. OFFLINE SOS: Twilio Webhook ---
+// --- 4. OFFLINE SOS: Webhook ---
 app.post('/api/webhook/sms-sos', async (req, res) => {
     const { Body } = req.body; 
     try {
-        const parts = Body.split('-'); // SOS-CLAIM-USERID-LAT-LON
+        const parts = Body.split('-'); 
         const userId = parts[2];
         await pool.query(`INSERT INTO claims (user_id, trigger_type, payout_amount) VALUES ($1, 'SMS_SOS', 500)`, [userId]);
         res.type('text/xml').send('<Response><Message>GigShield: SOS Verified. Payout Sent.</Message></Response>');
     } catch (err) { res.status(500).send('SMS Error'); }
 });
 
-// --- 5. USER UPDATE: Fingerprinting & Eligibility ---
+// --- 5. USER UPDATE ---
 app.post('/api/user/update', async (req, res) => {
     const { id, upi_id, device_fingerprint, lat, lng, daysWorked, platformMode } = req.body;
     try {
@@ -93,4 +119,10 @@ app.post('/api/user/update', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-server.listen(3001, () => console.log("🚀 GigShield 3.3 FINAL Live"));
+server.listen(3001, () => {
+    console.log("-----------------------------------------");
+    console.log("🚀 GigShield 3.3 FINAL Backend is LIVE");
+    console.log("📍 Local URL: http://localhost:3001");
+    console.log("📍 Test Route: http://localhost:3001/api/test");
+    console.log("-----------------------------------------");
+});
