@@ -1,4 +1,4 @@
-// server.js - Neema's Backend (Phase 3 Judge-Ready Integration)
+// server.js - GigShield Backend (Phase 3.2 Final Integration)
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -9,200 +9,120 @@ const { Pool } = require('pg');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
-
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+// --- MIDDLEWARE ---
 app.use(cors());
 app.use(express.json());
+// Required for Twilio/SMS Webhooks to parse the body correctly
+app.use(express.urlencoded({ extended: true }));
 
-// --- REAL-TIME: Join Zone for Zero-Touch Updates ---
 io.on('connection', (socket) => {
-  socket.on('join-zone', (zone) => {
-    socket.join(`zone:${zone}`);
-    console.log(`Worker joined zone monitoring: ${zone}`);
-  });
-});
-
-// --- 1. ADMIN HUB: Metrics API ---
-app.get('/api/admin/metrics', async (req, res) => {
-    try {
-        const moneyFlow = await pool.query(`
-            SELECT 
-                COALESCE(SUM(payout_amount), 0) as total_payouts,
-                (SELECT COALESCE(SUM(premium_paid_amount), 0) FROM policies) as total_premiums
-            FROM claims
-        `);
-        
-        const payouts = parseFloat(moneyFlow.rows[0].total_payouts);
-        const premiums = parseFloat(moneyFlow.rows[0].total_premiums);
-        const lossRatio = premiums > 0 ? (payouts / premiums).toFixed(2) : 0;
-
-        // Uses the new ss_eligible column for faster counts
-        const eligibility = await pool.query(`
-            SELECT 
-                COUNT(*) FILTER (WHERE ss_eligible = true) as eligible_count,
-                COUNT(*) as total_count
-            FROM users
-        `);
-
-        const fraudQueue = await pool.query(`
-            SELECT id, name, suspicion_reason, mobile, is_flagged 
-            FROM users WHERE is_flagged = true
-        `);
-
-        res.json({
-            metrics: { lossRatio, targetRatio: 0.65, totalPayouts: payouts, totalPremiums: premiums },
-            eligibility: eligibility.rows[0],
-            reviewQueue: fraudQueue.rows
-        });
-    } catch (err) {
-        res.status(500).json({ error: "Admin metrics failed" });
-    }
-});
-
-// --- 2. POLICY: Create with Adverse Selection Lockout & Consent Logging ---
-app.post('/api/policy/create', async (req, res) => {
-    const { userId, premiumId, amount, zone, consents } = req.body;
-    try {
-        // 1. Adverse Selection Check
-        const weatherAlert = await pool.query(
-            `SELECT alert_level FROM zone_weather WHERE zone = $1 AND alert_time > NOW()`, 
-            [zone]
-        );
-        const isRedAlertActive = weatherAlert.rows.some(r => r.alert_level === 'RED');
-
-        if (isRedAlertActive) {
-            return res.status(403).json({
-                success: false,
-                message: "Adverse Selection Lockout: You cannot buy insurance 48h before a Red Alert."
-            });
-        }
-
-        // 2. Log DPDP Consents during policy purchase
-        const now = new Date().toISOString();
-        await pool.query(
-            `UPDATE users SET 
-                gps_consent = $1, upi_consent = $2, platform_data_consent = $3,
-                gps_consent_at = CASE WHEN $1 THEN $4 ELSE gps_consent_at END,
-                upi_consent_at = CASE WHEN $2 THEN $4 ELSE upi_consent_at END,
-                activity_consent_at = CASE WHEN $3 THEN $4 ELSE activity_consent_at END
-             WHERE firebase_uid = $5 OR id::text = $5`,
-            [consents.gps_tracking, consents.upi_storage, consents.platform_data, now, userId]
-        );
-
-        // 3. Create Policy
-        const result = await pool.query(
-            `INSERT INTO policies (user_id, premium_id, premium_paid_amount, status) 
-             VALUES ((SELECT id FROM users WHERE firebase_uid=$1 OR id::text=$1), $2, $3, 'active') RETURNING *`,
-            [userId, premiumId, amount]
-        );
-        res.json({ success: true, policy: result.rows[0] });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// --- 3. PROFILE: Update with SS Eligibility & PostGIS ---
-app.post('/api/user/update', async (req, res) => {
-  const { id, name, mobile, gps_consent, upi_consent, lat, lng, daysWorked, platformMode } = req.body;
-  try {
-    // Logic: Single platform (90 days) or Multi platform (120 days)
-    const isEligible = (platformMode === 'single' && daysWorked >= 90) || 
-                       (platformMode === 'multi' && daysWorked >= 120);
-
-    const result = await pool.query(
-      `UPDATE users SET 
-        name=$1, mobile=$2, 
-        gps_consent=$3, upi_consent=$4,
-        days_worked_count=$5, platform_mode=$6, ss_eligible=$7,
-        coords=ST_SetSRID(ST_MakePoint($8, $9), 4326)::geography,
-        consent_timestamp=NOW() 
-       WHERE id=$10 RETURNING *`,
-      [name, mobile, gps_consent, upi_consent, daysWorked, platformMode, isEligible, lng, lat, id]
-    );
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// --- 4. TRIGGER: PostGIS Spatial Rules Engine ---
-app.post('/api/claims/trigger', async (req, res) => {
-  const { sensorLat, sensorLng, triggerType, payoutAmount, zone } = req.body;
-  try {
-    const activePolicies = await pool.query(
-      `SELECT p.id, p.user_id FROM policies p 
-       JOIN users u ON p.user_id = u.id 
-       WHERE p.status = 'active' 
-       AND u.gps_consent = true
-       AND ST_DWithin(u.coords, ST_MakePoint($1, $2)::geography, 500)`, 
-      [sensorLng, sensorLat]
-    );
-
-    const processedClaims = [];
-    for (let policy of activePolicies.rows) {
-      const claim = await pool.query(
-        `INSERT INTO claims (policy_id, user_id, trigger_type, payout_amount) 
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [policy.id, policy.user_id, triggerType, payoutAmount]
-      );
-      await pool.query(`UPDATE policies SET status = 'claimed' WHERE id = $1`, [policy.id]);
-      processedClaims.push(claim.rows[0]);
-    }
-
-    io.to(`zone:${zone}`).emit('claim-notification', {
-      title: "Hyper-Local Payout Success!",
-      body: `${triggerType} detected within 500m. ₹${payoutAmount} sent to your UPI.`,
-      icon: "success"
+    socket.on('join-zone', (zone) => {
+        socket.join(`zone:${zone}`);
+        console.log(`Worker joined zone monitoring: ${zone}`);
     });
-
-    res.json({ success: true, count: activePolicies.rows.length, claims: processedClaims });
-  } catch (err) {
-    res.status(500).json({ error: "Spatial trigger failed: " + err.message });
-  }
 });
 
-// --- 5. DATA FETCHING ---
-app.get('/api/payouts/:userId', async (req, res) => {
-  const result = await pool.query(
-    `SELECT * FROM claims WHERE user_id = (SELECT id FROM users WHERE firebase_uid=$1 OR id::text=$1) ORDER BY triggered_at DESC`, 
-    [req.params.userId]
-  );
-  res.json(result.rows);
-});
-
-app.get('/api/dashboard/:userId', async (req, res) => {
-  const policy = await pool.query(
-    `SELECT p.*, pr.final_amount FROM policies p 
-     JOIN premiums pr ON p.premium_id = pr.id 
-     WHERE p.user_id = (SELECT id FROM users WHERE firebase_uid=$1 OR id::text=$1) 
-     ORDER BY p.created_at DESC LIMIT 1`, 
-    [req.params.userId]
-  );
-  res.json(policy.rows[0] || { message: "No active policy" });
-});
-
-// Simulation Mode Metrics
-app.get('/api/admin/stress-test', async (req, res) => {
+// --- 1. ADMIN & GRAPH EXPORT (Priya's GNN Pipeline) ---
+app.get('/api/admin/graph-data', async (req, res) => {
     try {
-        const stressData = await pool.query(`
-            SELECT 
-                (SELECT COALESCE(SUM(premium_paid_amount), 0) FROM policies) as pool_total,
-                (SELECT COALESCE(SUM(payout_amount), 0) FROM claims) as current_payouts
+        const graphQuery = await pool.query(`
+            SELECT u1.id AS source, u2.id AS target, 'shared_upi' AS type
+            FROM users u1
+            JOIN users u2 ON u1.upi_id = u2.upi_id AND u1.id < u2.id
+            UNION
+            SELECT u1.id AS source, u2.id AS target, 'shared_device' AS type
+            FROM users u1
+            JOIN users u2 ON u1.device_fingerprint = u2.device_fingerprint AND u1.id < u2.id
         `);
-        const { pool_total, current_payouts } = stressData.rows[0];
-        const simulatedPayouts = parseFloat(current_payouts) * 3;
-        const reserve = parseFloat(pool_total) - simulatedPayouts;
-        res.json({
-            isSimulating: true,
-            metrics: {
-                totalPremiums: pool_total,
-                simulatedPayouts: simulatedPayouts.toFixed(2),
-                liquidityReserve: reserve.toFixed(2),
-                status: reserve > 0 ? "SOLVENT" : "CRITICAL"
-            }
-        });
-    } catch (err) { res.status(500).json({ error: "Simulation failed" }); }
+        const nodes = await pool.query(`SELECT id, name, is_flagged FROM users`);
+        res.json({ nodes: nodes.rows, edges: graphQuery.rows });
+    } catch (err) { res.status(500).json({ error: "Graph export failed" }); }
 });
 
-server.listen(3001, () => console.log("🚀 GigShield Backend Live on Port 3001"));
+// --- 2. RISK CORRIDOR: Routing Analysis (Samridhi & Bhavana Bridge) ---
+app.post('/api/route/check-risk', async (req, res) => {
+    const { routeGeometry } = req.body;
+    try {
+        const riskIntersect = await pool.query(`
+            SELECT zone_name, risk_type, risk_score 
+            FROM danger_zones 
+            WHERE ST_Intersects(geom, ST_SetSRID(ST_GeomFromGeoJSON($1), 4326))
+            ORDER BY risk_score DESC LIMIT 1`, 
+            [JSON.stringify(routeGeometry)]
+        );
+        res.json({ isRiskCorridor: riskIntersect.rows.length > 0, riskDetail: riskIntersect.rows[0] || null });
+    } catch (err) { res.status(500).json({ error: "Routing risk check failed" }); }
+});
+
+// --- 3. OFFLINE SOS: SMS Webhook (Twilio Implementation) ---
+app.post('/api/webhook/sms-sos', async (req, res) => {
+    const { Body, From } = req.body; // Example Body: "SOS-CLAIM-USER123-LAT19.07-LON72.87"
+    try {
+        const parts = Body.split('-');
+        if (parts[0] !== 'SOS') return res.status(400).send('Invalid Format');
+
+        const userId = parts[2];
+        const lat = parseFloat(parts[3].replace('LAT', ''));
+        const lon = parseFloat(parts[4].replace('LON', ''));
+
+        // Instant Verification: Is there a recent alert near these coordinates?
+        const weatherCheck = await pool.query(`
+            SELECT alert_level FROM zone_weather 
+            WHERE zone = (SELECT zone FROM users WHERE id::text = $1 OR firebase_uid = $1)
+            AND alert_time > NOW() - INTERVAL '2 hours' LIMIT 1`, [userId]);
+
+        if (weatherCheck.rows.length > 0) {
+            await pool.query(`
+                INSERT INTO claims (user_id, trigger_type, payout_amount, status) 
+                VALUES ((SELECT id FROM users WHERE id::text=$1 OR firebase_uid=$1), 'OFFLINE_SOS', 500.0, 'priority')`, [userId]);
+            
+            res.type('text/xml').send('<Response><Message>SOS Verified. Emergency payout ₹500 processed.</Message></Response>');
+        } else {
+            res.type('text/xml').send('<Response><Message>SOS Received. Our team is monitoring your safety.</Message></Response>');
+        }
+    } catch (err) { res.status(500).send('Webhook Error'); }
+});
+
+// --- 4. PROFILE & FINGERPRINTING ---
+app.post('/api/user/update', async (req, res) => {
+    const { id, name, upi_id, device_fingerprint, lat, lng, daysWorked, platformMode } = req.body;
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    try {
+        const isEligible = (platformMode === 'single' && daysWorked >= 90) || 
+                           (platformMode === 'multi' && daysWorked >= 120);
+        const result = await pool.query(`
+            UPDATE users SET 
+                name=$1, upi_id=$2, device_fingerprint=$3, ip_address=$4,
+                days_worked_count=$5, platform_mode=$6, ss_eligible=$7,
+                coords=ST_SetSRID(ST_MakePoint($8, $9), 4326)::geography,
+                consent_timestamp=NOW() 
+            WHERE firebase_uid=$10 OR id::text=$10 RETURNING *`,
+            [name, upi_id, device_fingerprint, ip, daysWorked, platformMode, isEligible, lng, lat, id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- 5. TRIGGER & CLAIMS (Spatial Engine) ---
+app.post('/api/claims/trigger', async (req, res) => {
+    const { sensorLat, sensorLng, triggerType, payoutAmount, zone } = req.body;
+    try {
+        const activePolicies = await pool.query(`
+            SELECT p.id, p.user_id FROM policies p JOIN users u ON p.user_id = u.id 
+            WHERE p.status = 'active' AND u.gps_consent = true
+            AND ST_DWithin(u.coords, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, 500)`, 
+            [sensorLng, sensorLat]
+        );
+        for (let policy of activePolicies.rows) {
+            await pool.query(`INSERT INTO claims (policy_id, user_id, trigger_type, payout_amount) VALUES ($1, $2, $3, $4)`,
+                [policy.id, policy.user_id, triggerType, payoutAmount]);
+            await pool.query(`UPDATE policies SET status = 'claimed' WHERE id = $1`, [policy.id]);
+        }
+        io.to(`zone:${zone}`).emit('claim-notification', { title: "Payout!", body: `₹${payoutAmount} triggered.` });
+        res.json({ success: true, count: activePolicies.rows.length });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+server.listen(3001, () => console.log("🚀 GigShield Backend Final 3.2 Live"));
