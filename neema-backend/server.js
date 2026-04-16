@@ -32,7 +32,7 @@ app.post('/api/security/verify-location', async (req, res) => {
         const officialLon = parseFloat(geoRes.data[0].lon);
 
         // Step B: Ping Priya's Python Engine for Haversine distance math
-        const verifyRes = await axios.post('http://localhost:8000/verify', {
+        const verifyRes = await axios.post('http://localhost:8000/api/v1/premium/verify', {
             lat1: device_lat, lon1: device_lon,
             lat2: officialLat, lon2: officialLon
         });
