@@ -1,4 +1,4 @@
-// server.js - GigShield Final Phase 3.3 (Zero-Trust Integrated)
+// server.js - GigShield Final Phase 3.4 (Zero-Trust & Admin Integrated)
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -9,19 +9,60 @@ const { Pool } = require('pg');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-app.use(cors());
+// --- 1. ENHANCED SOCKET & CORS CONFIGURATION ---
+const io = new Server(server, {
+    cors: {
+        origin: "*", 
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    allowEIO3: true // Fixes Socket.io handshake 400 errors
+});
+
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'ngrok-skip-browser-warning'],
+    credentials: true
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- DEBUG TEST ROUTE ---
-app.get('/api/test', (req, res) => {
-    res.json({ message: "Node.js Server is alive on port 3001!" });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// --- 2. DYNAMIC ADMIN DASHBOARD ROUTE (Bhavana's Fix) ---
+app.get('/api/admin/metrics', async (req, res) => {
+    try {
+        // A. Eligibility Stats (Social Security Card)
+        const eligibilityQuery = await pool.query(`
+            SELECT 
+                COUNT(*) as total_count, 
+                COUNT(*) FILTER (WHERE ss_eligible = true) as eligible_count 
+            FROM users
+        `);
+
+        // B. Review Queue (Sybil/Fraud detection from Priya's Engine flags)
+        const reviewQueueQuery = await pool.query(`
+            SELECT id, name, suspicion_reason, mobile 
+            FROM users 
+            WHERE is_flagged = true 
+            ORDER BY updated_at DESC LIMIT 5
+        `);
+
+        res.json({
+            metrics: { lossRatio: 0.42 }, // Dynamic logic can be added here
+            eligibility: eligibilityQuery.rows[0],
+            reviewQueue: reviewQueueQuery.rows
+        });
+    } catch (err) {
+        console.error("Admin Metric Error:", err.message);
+        res.status(500).json({ error: "Failed to fetch admin data" });
+    }
 });
 
-// --- 1. ZERO-TRUST: Dynamic Location Verification ---
+// --- 3. ZERO-TRUST: Dynamic Location Verification (Priya's Engine) ---
 app.post('/api/security/verify-location', async (req, res) => {
     const { user_id, declared_location_text, device_lat, device_lon } = req.body;
     
@@ -29,45 +70,44 @@ app.post('/api/security/verify-location', async (req, res) => {
         // Step A: Geocoding via Nominatim
         const geoRes = await axios.get(`https://nominatim.openstreetmap.org/search`, {
             params: { q: declared_location_text, format: 'json', limit: 1 },
-            headers: { 'User-Agent': 'GigShield-S6-Project' },
-            timeout: 5000 // 5 second timeout
+            headers: { 'User-Agent': 'GigShield-S6-Project' }
         });
 
         if (!geoRes.data || geoRes.data.length === 0) {
-            return res.status(404).json({ secure: false, reason: "Location text not recognized by Map API." });
+            return res.json({ secure: false, reason: "Location text not recognized." });
         }
 
         const officialLat = parseFloat(geoRes.data[0].lat);
         const officialLon = parseFloat(geoRes.data[0].lon);
 
         // Step B: Connect to Priya's Engine
-        // IMPORTANT: Ensure Priya's server is running on the SAME machine or use her IP address.
-        const verifyRes = await axios.post('http://localhost:8000/api/v1/premium/verify', {
+        const verifyRes = await axios.post('https://supraorbital-hyperrhythmical-naoma.ngrok-free.dev/api/v1/premium/verify', {
             lat1: device_lat, 
             lon1: device_lon,
             lat2: officialLat, 
             lon2: officialLon
-        }, { timeout: 3000 });
+        }, { 
+            headers: { 'ngrok-skip-browser-warning': 'true' },
+            timeout: 5000 
+        });
 
-        res.json(verifyRes.data);
+        // Step C: Update DB status if flagged
+        if (!verifyRes.data.secure) {
+            await pool.query('UPDATE users SET is_flagged = true, suspicion_reason = $1 WHERE id = $2', 
+            [verifyRes.data.reason || "Location Anomaly", user_id]);
+        }
+
+        res.json({
+            secure: verifyRes.data.secure,
+            reason: verifyRes.data.secure ? "Verified" : (verifyRes.data.reason || "Verification Failed")
+        });
 
     } catch (err) {
-        console.error("Connection Error:", err.message);
-        
-        // Detailed error reporting for the demo
-        let errorMsg = "Security Engine Offline";
-        if (err.code === 'ECONNREFUSED') errorMsg = "Priya's Python Server is not running on port 8000.";
-        if (err.code === 'ETIMEDOUT') errorMsg = "Priya's server is taking too long to answer.";
-        
-        res.status(500).json({ 
-            secure: false, 
-            error: errorMsg,
-            technical_details: err.message 
-        });
+        res.status(500).json({ secure: false, reason: "Security Engine Offline." });
     }
 });
 
-// --- 2. SYBIL DETECTION: Graph Export ---
+// --- 4. SYBIL DETECTION: Graph Export ---
 app.get('/api/admin/graph-data', async (req, res) => {
     try {
         const edges = await pool.query(`
@@ -82,20 +122,7 @@ app.get('/api/admin/graph-data', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Graph fail" }); }
 });
 
-// --- 3. RISK CORRIDOR: PostGIS Analysis ---
-app.post('/api/route/check-risk', async (req, res) => {
-    const { routeGeometry } = req.body;
-    try {
-        const result = await pool.query(`
-            SELECT zone_name, risk_type FROM danger_zones 
-            WHERE ST_Intersects(geom, ST_SetSRID(ST_GeomFromGeoJSON($1), 4326)) LIMIT 1`, 
-            [JSON.stringify(routeGeometry)]
-        );
-        res.json({ isRiskCorridor: result.rows.length > 0, detail: result.rows[0] });
-    } catch (err) { res.status(500).json({ error: "Spatial check failed" }); }
-});
-
-// --- 4. OFFLINE SOS: Webhook ---
+// --- 5. OFFLINE SOS: Twilio Webhook ---
 app.post('/api/webhook/sms-sos', async (req, res) => {
     const { Body } = req.body; 
     try {
@@ -106,23 +133,23 @@ app.post('/api/webhook/sms-sos', async (req, res) => {
     } catch (err) { res.status(500).send('SMS Error'); }
 });
 
-// --- 5. USER UPDATE ---
+// --- 6. USER/LOCATION UPDATES ---
 app.post('/api/user/update', async (req, res) => {
     const { id, upi_id, device_fingerprint, lat, lng, daysWorked, platformMode } = req.body;
     try {
         const eligible = (platformMode === 'single' && daysWorked >= 90) || (platformMode === 'multi' && daysWorked >= 120);
         await pool.query(`
             UPDATE users SET upi_id=$1, device_fingerprint=$2, days_worked_count=$3, ss_eligible=$4,
-            coords=ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography WHERE id::text=$7 OR firebase_uid=$7`,
+            coords=ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, updated_at = NOW()
+            WHERE id::text=$7 OR firebase_uid=$7`,
             [upi_id, device_fingerprint, daysWorked, eligible, lng, lat, id]);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// --- SERVER START ---
 server.listen(3001, () => {
-    console.log("-----------------------------------------");
-    console.log("🚀 GigShield 3.3 FINAL Backend is LIVE");
-    console.log("📍 Local URL: http://localhost:3001");
-    console.log("📍 Test Route: http://localhost:3001/api/test");
-    console.log("-----------------------------------------");
+    console.log("🚀 GigShield 3.4 FULLY INTEGRATED");
+    console.log("📍 Admin Route: http://localhost:3001/api/admin/metrics");
+    console.log("📍 ngrok Tunnel: https://rebound-estimate-glue.ngrok-free.dev");
 });
