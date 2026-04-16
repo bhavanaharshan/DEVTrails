@@ -18,7 +18,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/admin/metrics');
+        const res = await fetch('https://rebound-estimate-glue.ngrok-free.dev/api/admin/metrics');
         const json = await res.json();
         if (json) setData(json); // 2. CHANGE: Added check to ensure json exists
       } catch (err) {
