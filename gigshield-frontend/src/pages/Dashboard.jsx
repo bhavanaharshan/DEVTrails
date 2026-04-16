@@ -1,148 +1,112 @@
-// src/pages/Dashboard.jsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext'; 
 import { io } from 'socket.io-client'; 
 import { 
-  Menu, X, Home, CreditCard, Truck, User, 
-  LogOut, CheckCircle, Zap, Clock, Camera, Edit2, 
-  MapPin, Phone, Save, QrCode, ShieldCheck, WifiOff, AlertTriangle
+  Menu, X, Home, Truck, User, Zap, ShieldCheck, WifiOff, AlertTriangle, Phone, MapPin
 } from 'lucide-react';
+
+// The centralized tunnel address provided by Neema
+const BACKEND_URL = 'https://rebound-estimate-glue.ngrok-free.dev';
 
 export default function Dashboard() {
   const { user } = useAuth(); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activePage, setActivePage] = useState('dashboard');
-  
-  // Offline SOS State
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [sosPayload, setSosPayload] = useState('');
   
   const [profile, setProfile] = useState({
     id: user?.uid || "demo_user", 
-    name: "Delivery Partner",
+    name: localStorage.getItem('gs_name') || "Delivery Partner",
+    zone: localStorage.getItem('gs_zone') || "Pending Zone",
     mobile: user?.phoneNumber || "+91 00000 00000",
-    zone: "Pending Zone",
-    address: "Update your address in profile",
-    platforms: [], // Now an array
+    platforms: JSON.parse(localStorage.getItem('gs_platforms') || '[]'),
     avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || "demo"}`
   });
 
-  // Hydrate Data & Offline Listeners
+  // 1. Network & Offline SOS Logic
   useEffect(() => {
-    // 1. Offline SOS Listeners
     const handleOffline = () => setIsOffline(true);
     const handleOnline = () => setIsOffline(false);
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
 
-    // 2. Fetch User Data
-    const fetchUserData = async () => {
-      // Pull instant local data first
-      const savedZone = localStorage.getItem('gs_zone');
-      const savedName = localStorage.getItem('gs_name');
-      const savedPlatforms = localStorage.getItem('gs_platforms');
-      
-      if (savedZone) {
-        setProfile(prev => ({ 
-          ...prev, 
-          zone: savedZone, 
-          name: savedName || prev.name,
-          platforms: savedPlatforms ? JSON.parse(savedPlatforms) : ["Platform"]
-        }));
-      }
-
-      // Sync with backend
-      if (!user?.uid) return;
-      try {
-        const response = await fetch(`http://localhost:5000/api/dashboard/${user.uid}`); 
-        if(response.ok) {
-          const data = await response.json();
-          setProfile(prev => ({ ...prev, ...data }));
-        }
-      } catch (err) {
-        console.log("Using cached local data.");
+    const prepareSOS = () => {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          setSosPayload(`SOS-CLAIM-${profile.id}-LAT${pos.coords.latitude.toFixed(2)}-LON${pos.coords.longitude.toFixed(2)}`);
+        });
       }
     };
-    
-    fetchUserData();
+    if (isOffline) prepareSOS();
 
     return () => {
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
     };
-  }, [user]);
+  }, [isOffline, profile.id]);
 
   const Navigation = () => (
-    <>
-      <div className="flex justify-between items-center mb-10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white font-black italic text-lg">G</div>
-          <span className="font-black text-2xl italic text-white tracking-tight">GIG<span className="text-orange-500">SHIELD</span></span>
-        </div>
-        <button onClick={() => setIsSidebarOpen(false)} className="text-gray-400 lg:hidden"><X size={24} /></button>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-3 mb-10">
+        <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white font-black italic text-lg shadow-lg">G</div>
+        <span className="font-black text-2xl italic tracking-tight text-white">GIG<span className="text-orange-500">SHIELD</span></span>
       </div>
       <nav className="space-y-2 flex-1">
         {[{ id: 'dashboard', label: 'Earnings', icon: <Home size={20}/> },
           { id: 'duty', label: 'Trip History', icon: <Truck size={20}/> },
-          { id: 'history', label: 'Payouts', icon: <CreditCard size={20}/> },
           { id: 'profile', label: 'My Profile', icon: <User size={20}/> }
         ].map((item) => (
           <button 
             key={item.id} 
             onClick={() => { setActivePage(item.id); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-4 p-4 rounded-2xl font-bold transition-all ${activePage === item.id ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
+            className={`w-full flex items-center gap-4 p-4 rounded-2xl font-bold transition-all ${activePage === item.id ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
           >
             {item.icon} {item.label}
           </button>
         ))}
       </nav>
-    </>
+    </div>
   );
 
   return (
     <div className="flex h-screen bg-[#0F0F1A] text-white font-sans overflow-hidden">
       
-      {/* Offline SOS Banner (VC X-Factor) */}
+      {/* Offline SOS SMS Banner */}
       <AnimatePresence>
         {isOffline && (
           <motion.div initial={{ y: -50 }} animate={{ y: 0 }} exit={{ y: -50 }} className="fixed top-0 left-0 w-full bg-red-600 text-white p-3 z-[100] flex justify-center items-center gap-4 shadow-2xl">
             <WifiOff size={20} />
-            <span className="font-bold text-sm tracking-wide">Network Offline. SOS Fallback System Active.</span>
-            <a href={`sms:+1234567890?body=SOS-CLAIM-${profile.id}-ZONE-${profile.zone}`} className="bg-white text-red-600 px-4 py-1 rounded-full font-black text-xs uppercase tracking-wider hover:bg-gray-100 transition-colors">
+            <span className="font-bold text-sm">Network Offline. SOS Fallback Active.</span>
+            <a href={`sms:+919876543210?body=${sosPayload}`} className="bg-white text-red-600 px-4 py-1 rounded-full font-black text-xs uppercase tracking-wider shadow-lg">
               Send SMS Claim
             </a>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className={`fixed inset-0 bg-black/80 z-40 lg:hidden transition-opacity ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsSidebarOpen(false)} />
+      <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsSidebarOpen(false)} />
 
       <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#161622] border-r border-white/5 p-6 flex flex-col transform transition-transform lg:relative lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <Navigation />
       </aside>
 
-      <div className={`flex-1 flex flex-col h-screen overflow-y-auto w-full relative ${isOffline ? 'mt-12' : ''}`}>
-        <header className="p-4 md:p-6 lg:px-10 flex justify-between items-center sticky top-0 z-30 bg-[#0F0F1A]/80 backdrop-blur-xl border-b border-white/5">
+      <div className={`flex-1 flex flex-col h-screen overflow-y-auto relative ${isOffline ? 'mt-12' : ''}`}>
+        <header className="p-6 flex justify-between items-center sticky top-0 z-30 bg-[#0F0F1A]/80 backdrop-blur-xl border-b border-white/5">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 hover:bg-white/10 rounded-full lg:hidden"><Menu size={24} /></button>
-            <h1 className="text-sm md:text-lg font-black uppercase tracking-widest text-orange-500">
-              {activePage === 'dashboard' ? "Today's Earnings" : activePage}
-            </h1>
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 -ml-2 hover:bg-white/5 rounded-full"><Menu size={24} /></button>
+            <h1 className="text-lg font-black uppercase tracking-widest text-orange-500">{activePage.toUpperCase()}</h1>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:block text-right">
-              <p className="text-sm font-bold text-white">{profile.name}</p>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{profile.zone}</p>
-            </div>
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-[#1A1A24] border-2 border-white/10 overflow-hidden"><img src={profile.avatar} alt="profile" className="w-full h-full object-cover" /></div>
+          <div className="text-right">
+            <p className="text-sm font-bold text-white">{profile.name}</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{profile.zone}</p>
           </div>
         </header>
 
         <main className="flex-1 w-full flex flex-col">
           {activePage === 'dashboard' && <DashboardView profile={profile} />}
-          {activePage === 'duty' && <TripHistoryView />}
-          {activePage === 'history' && <PayoutHistoryView userId={profile.id} />}
-          {activePage === 'profile' && <ProfileView profile={profile} setProfile={setProfile} />}
+          {activePage === 'profile' && <ProfileView profile={profile} />}
         </main>
       </div>
     </div>
@@ -150,208 +114,168 @@ export default function Dashboard() {
 }
 
 // ---------------------------------------------------------
-// DASHBOARD VIEW 
+// DASHBOARD VIEW (Zero-Trust Logic)
 // ---------------------------------------------------------
 const DashboardView = ({ profile }) => {
-  const [isTriggering, setIsTriggering] = useState(false);
+  const [securityStatus, setSecurityStatus] = useState('scanning'); 
+  const [fraudReason, setFraudReason] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // 1. Zero-Trust Security Handshake
   useEffect(() => {
-    const socket = io('http://localhost:5000');
-    if (profile?.zone && profile.zone !== "Pending Zone") {
-      socket.emit('join-zone', profile.zone);
-    } else {
-      socket.emit('join-zone', "Kurla"); 
-    }
+    const runSecurityScan = async () => {
+      setSecurityStatus('scanning');
+      
+      if (!("geolocation" in navigator)) {
+        setSecurityStatus('compromised');
+        setFraudReason('Hardware Violation: Geolocation API missing.');
+        return;
+      }
 
-    socket.on('claim-notification', (data) => {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        try {
+          const response = await fetch(`${BACKEND_URL}/api/security/verify-location`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true' // Bypasses ngrok splash screen
+            },
+            body: JSON.stringify({
+              user_id: profile.id, // Payload aligned with Neema's server.js
+              declared_location_text: profile.zone, // Updated key for backend geocoding
+              device_lat: pos.coords.latitude,
+              device_lon: pos.coords.longitude
+            })
+          });
+
+          if (!response.ok) throw new Error("Security handshake failed");
+
+          const data = await response.json();
+          if (data.secure === true) {
+            setSecurityStatus('secure');
+          } else {
+            setSecurityStatus('compromised');
+            setFraudReason(data.reason || "Kinematic Violation: Physical location mismatch detected.");
+          }
+        } catch (err) {
+          setSecurityStatus('compromised');
+          setFraudReason('Zero-Trust Violation: Security Handshake Failed or Server Offline.');
+        }
+      }, (err) => {
+        // If offline, do not lock based on hardware failure to allow SOS protocol
+        if (!navigator.onLine) {
+           setSecurityStatus('secure');
+        } else {
+           setSecurityStatus('compromised');
+           setFraudReason('Hardware Violation: Location access blocked or timed out.');
+        }
+      });
+    };
+
+    if (profile.zone !== "Pending Zone") runSecurityScan();
+  }, [profile.zone, profile.id]);
+
+  // 2. Socket Connection for Real-time Weather Triggers
+  useEffect(() => {
+    const socket = io(BACKEND_URL, {
+        extraHeaders: {
+            "ngrok-skip-browser-warning": "true"
+        }
+    });
+
+    socket.emit('join-zone', profile.zone);
+    
+    socket.on('claim-notification', () => {
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 6000);
+      setTimeout(() => setShowSuccess(false), 8000);
     });
 
     return () => socket.disconnect();
-  }, [profile?.zone]);
-
-  const fireWeatherTrigger = async () => {
-    setIsTriggering(true);
-    try {
-      const payload = { 
-        user_id: profile.id, 
-        trigger_type: "severe_weather", 
-        payoutAmount: 350,
-        zone: profile.zone !== "Pending Zone" ? profile.zone : "Kurla" 
-      };
-      
-      const response = await fetch('http://localhost:5000/api/claims/trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error("Trigger failed");
-    } catch (error) {
-      console.error(error);
-      alert("Database trigger failed! Ensure backend is running.");
-    } finally {
-      setIsTriggering(false);
-    }
-  };
+  }, [profile.zone]);
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 lg:p-10 flex flex-col gap-6">
+    <div className="p-4 md:p-10 flex flex-col gap-6 relative min-h-full">
       
+      {/* Security Lockout UI */}
       <AnimatePresence>
-        {showSuccess && (
-          <motion.div initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -50 }} className="absolute top-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-2xl bg-green-500 text-white p-6 md:p-8 rounded-3xl shadow-2xl z-50 border-4 border-green-400">
-            <div className="flex items-center gap-4 mb-2">
-              <Zap size={32} className="text-yellow-300" />
-              <h2 className="text-2xl md:text-3xl font-black italic tracking-wider">SEVERE WEATHER!</h2>
-            </div>
-            <p className="font-bold md:text-lg mb-4">Rain threshold exceeded. Do not take orders. Stay safe.</p>
-            <div className="bg-black/20 p-4 rounded-2xl flex justify-between items-center mb-2">
-              <span className="font-black uppercase tracking-widest text-sm">Instant Payout</span>
-              <span className="text-3xl md:text-5xl font-black">₹350</span>
-            </div>
-            <p className="text-xs font-bold text-green-200 text-center uppercase tracking-widest">Credited to UPI instantly</p>
+        {securityStatus === 'compromised' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center p-6 backdrop-blur-xl border border-red-500/30">
+            <AlertTriangle size={64} className="text-red-500 mb-4" />
+            <h2 className="text-3xl font-black text-red-500 mb-2 uppercase italic tracking-tighter text-center">Security Lockout</h2>
+            <p className="text-gray-300 font-bold mb-8 text-center max-w-md">{fraudReason}</p>
+            <p className="text-[10px] text-gray-600 uppercase tracking-widest font-mono">Protocol: Zero-Trust Hardware Verification</p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Risk Mitigation Nudge */}
-      <div className="bg-orange-500/10 border border-orange-500/30 p-4 rounded-2xl flex items-start gap-4">
-        <ShieldCheck className="text-orange-500 shrink-0" size={24} />
-        <div>
-          <h3 className="font-black text-orange-500 uppercase tracking-widest text-sm">Slab Shield Active</h3>
-          <p className="text-xs font-bold text-orange-200 mt-1">Your {profile.platforms?.join(' & ') || 'Platform'} weekend incentive target is protected against severe weather disruptions today.</p>
+      {/* Instant Payout Notification */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-green-600 text-white p-8 rounded-3xl shadow-2xl border-4 border-green-400 mb-4">
+            <div className="flex items-center gap-4 mb-2"><Zap size={32} className="text-yellow-300" /><h2 className="text-3xl font-black italic uppercase">Severe Weather Detected</h2></div>
+            <p className="font-bold text-lg">Parametric payout of <span className="text-2xl font-black underline italic">₹350</span> credited instantly.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex justify-between items-center bg-[#161622] border border-white/5 p-4 px-6 rounded-2xl shadow-lg">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className={securityStatus === 'secure' ? "text-green-500" : "text-orange-500 animate-pulse"} size={22} />
+          <span className="text-xs font-black uppercase tracking-widest text-gray-400">
+            Hardware Health: <span className={securityStatus === 'secure' ? "text-green-500" : "text-orange-500"}>{securityStatus.toUpperCase()}</span>
+          </span>
+        </div>
+        {securityStatus === 'secure' && <div className="flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full animate-ping" /><span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Live Monitoring</span></div>}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-[#161622] p-8 rounded-3xl border border-white/5 shadow-xl group">
+          <p className="text-5xl font-black mb-2 tracking-tighter transition-colors group-hover:text-orange-500">₹3,500</p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Today's Earnings</p>
+        </div>
+        <div className="bg-[#161622] p-8 rounded-3xl border border-white/5 shadow-xl group">
+          <p className="text-5xl font-black mb-2 tracking-tighter transition-colors group-hover:text-orange-500">5.4 <span className="text-2xl text-gray-600 font-normal">hrs</span></p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Duty Time</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-[#161622] p-6 rounded-3xl border border-white/5 shadow-lg">
-              <p className="text-4xl font-black mb-2">₹3500</p>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Today's Earnings</p>
-            </div>
-            <div className="bg-[#161622] p-6 rounded-3xl border border-white/5 shadow-lg">
-              <p className="text-4xl font-black mb-2">5:40 <span className="text-lg text-gray-500">hrs</span></p>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Login Duration</p>
-            </div>
-          </div>
-
-          <button onClick={fireWeatherTrigger} disabled={isTriggering} className="w-full bg-orange-500/10 border border-orange-500/50 text-orange-500 p-4 rounded-3xl font-black uppercase tracking-widest text-sm flex justify-center items-center gap-3 hover:bg-orange-500 hover:text-white transition-all shadow-lg">
-            {isTriggering ? 'Sending Webhook...' : <><Zap size={20} /> Demo: Force Rain Event</>}
-          </button>
-
-          <div className="bg-[#161622] border border-white/5 rounded-3xl p-6 shadow-xl flex-1">
-            <div className="flex justify-between items-start mb-10">
-              <div>
-                <h3 className="font-black text-white text-xl">Today's Bonus Pay</h3>
-                <p className="text-xs text-gray-400 font-bold mt-1">12am - 11:59pm</p>
-              </div>
-              <p className="text-2xl font-black text-orange-500 bg-orange-500/10 px-4 py-2 rounded-xl">₹60</p>
-            </div>
-            
-            <div className="relative flex justify-between items-center mb-4 px-2 md:mt-12">
-              <div className="absolute top-1/2 left-0 w-full h-2 bg-gray-800 -translate-y-1/2 rounded-full" />
-              <div className="absolute top-1/2 left-0 w-3/4 h-2 bg-orange-500 -translate-y-1/2 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.5)]" />
-              {[10, 30, 60, 100].map((step, idx) => (
-                <div key={idx} className={`relative z-10 w-6 h-6 rounded-full border-4 border-[#161622] ${idx < 3 ? 'bg-orange-500' : 'bg-gray-700'}`} />
-              ))}
-            </div>
-            <div className="flex justify-between px-1 text-xs font-black text-gray-500 uppercase">
-              <span>₹100</span><span>₹140</span><span>₹230</span><span>₹340+</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-1 bg-[#161622] rounded-3xl border border-white/5 p-6 shadow-xl flex flex-col min-h-[400px]">
-          <h3 className="text-xl font-black text-white mb-6">Recent Activity</h3>
-          <div className="space-y-4 flex-1 overflow-y-auto">
-            {[{ name: 'Koramangala Kitchen', time: '11:20 PM', price: '₹120' },
-              { name: 'Indiranagar Hub', time: '10:30 PM', price: '₹95' },
-              { name: 'HSR Layout Delivery', time: '09:15 PM', price: '₹140' }
-            ].map((trip, i) => (
-              <div key={i} className="flex justify-between items-center p-4 bg-[#0F0F1A] rounded-2xl border border-white/5">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-orange-500/10 rounded-xl flex items-center justify-center text-orange-500"><Truck size={16} /></div>
-                  <div>
-                    <p className="font-bold text-sm text-white">{trip.name}</p>
-                    <p className="text-[10px] font-bold text-gray-500 uppercase mt-1">{trip.time}</p>
-                  </div>
-                </div>
-                <p className="font-black text-white">{trip.price}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-// ---------------------------------------------------------
-// PROFILE VIEW
-// ---------------------------------------------------------
-const ProfileView = ({ profile, setProfile }) => {
-  const fileInputRef = useRef(null);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const saveProfile = async () => {
-    setIsSaving(true);
-    await new Promise(r => setTimeout(r, 1000));
-    setIsSaving(false);
-  };
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 w-full max-w-4xl mx-auto p-4 md:p-8">
-      <div className="bg-[#161622] rounded-3xl border border-white/5 p-6 md:p-10 shadow-xl">
-        <div className="text-center mb-10">
-          <input value={profile.name} onChange={(e) => setProfile({...profile, name: e.target.value})} className="text-3xl font-black text-white text-center bg-transparent outline-none w-1/2" />
-          <p className="text-orange-500 font-bold text-sm uppercase tracking-widest mt-2 italic">Pro Tier • {profile.platforms?.join(' & ') || 'Delivery Partner'}</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-          <div className="space-y-4">
-            <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest ml-2">Account Details</h4>
-            <div className="bg-[#0F0F1A] border border-white/5 rounded-3xl p-6 space-y-6">
+      <div className="bg-[#161622] border border-white/5 rounded-3xl p-8 flex-1 shadow-xl">
+        <h3 className="font-black text-white text-xl mb-6 uppercase tracking-tight">Active Protection Log</h3>
+        <div className="space-y-4">
+          {['Hardware Geo-Sync', 'Encrypted Payout Channel', 'Weather API Stream'].map((log, i) => (
+            <div key={i} className="flex justify-between items-center p-4 bg-[#0F0F1A] rounded-2xl border border-white/5">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-orange-500/10 rounded-xl flex items-center justify-center"><Phone size={18} className="text-orange-500" /></div>
-                <div className="flex-1">
-                  <p className="text-[10px] font-black text-gray-500 uppercase mb-1">Mobile</p>
-                  <input value={profile.mobile} onChange={(e) => setProfile({...profile, mobile: e.target.value})} className="font-bold text-sm bg-transparent text-white w-full outline-none" />
-                </div>
+                <div className="w-8 h-8 bg-green-500/10 rounded-lg flex items-center justify-center text-green-500 font-bold text-xs">OK</div>
+                <p className="font-bold text-sm text-gray-400">{log}</p>
               </div>
+              <p className="font-black text-gray-600 text-[10px] uppercase">Verified</p>
             </div>
-          </div>
-          <div className="space-y-4">
-            <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest ml-2">Payment Setup</h4>
-            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-3xl p-6 text-white h-[calc(100%-2rem)] flex flex-col items-center justify-center">
-              <QrCode size={60} className="mb-2" />
-              <p className="text-xs font-bold uppercase">UPI Active</p>
-            </div>
-          </div>
+          ))}
         </div>
-
-        <button onClick={saveProfile} className={`w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-3 ${isSaving ? 'bg-green-500 text-white' : 'bg-white text-black hover:bg-gray-200'}`}>
-          {isSaving ? <><CheckCircle size={20}/> Saved</> : <><Save size={20}/> Save Profile</>}
-        </button>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
-// ---------------------------------------------------------
-// PAYOUT HISTORY VIEW
-// ---------------------------------------------------------
-const PayoutHistoryView = ({ userId }) => {
-  return (
-    <div className="p-8 text-center"><h2 className="text-2xl font-bold">Payouts will appear here.</h2></div>
-  );
-};
-
-// ---------------------------------------------------------
-// TRIP HISTORY VIEW
-// ---------------------------------------------------------
-const TripHistoryView = () => (
-  <div className="p-8 text-center"><h2 className="text-2xl font-bold">Trip History</h2></div>
+const ProfileView = ({ profile }) => (
+  <div className="p-6 md:p-10 max-w-2xl mx-auto w-full">
+    <div className="bg-[#161622] rounded-3xl border border-white/5 p-8 flex flex-col items-center shadow-2xl">
+      <div className="w-32 h-32 rounded-full border-4 border-orange-500/30 overflow-hidden mb-6 shadow-xl shadow-orange-500/10">
+        <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
+      </div>
+      <h2 className="text-3xl font-black italic mb-2 tracking-tighter text-white">{profile.name}</h2>
+      <p className="text-orange-500 font-bold uppercase tracking-widest text-xs mb-8">Verified Partner • {profile.zone}</p>
+      
+      <div className="w-full space-y-3 text-left">
+        <div className="flex items-center gap-4 bg-[#0F0F1A] p-4 rounded-2xl border border-white/5">
+          <Phone className="text-orange-500/50" size={18} />
+          <div><p className="text-[8px] uppercase text-gray-500 font-bold">Mobile</p><p className="font-bold text-sm text-white">{profile.mobile}</p></div>
+        </div>
+        <div className="flex items-center gap-4 bg-[#0F0F1A] p-4 rounded-2xl border border-white/5">
+          <MapPin className="text-orange-500/50" size={18} />
+          <div><p className="text-[8px] uppercase text-gray-500 font-bold">Zone</p><p className="font-bold text-sm text-white">{profile.zone}</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
 );

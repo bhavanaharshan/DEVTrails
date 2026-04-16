@@ -10,9 +10,30 @@ import {
 } from 'lucide-react';
 
 const ZONES = {
+  'Thiruvananthapuram': ['Kazhakkoottam', 'Palayam', 'Kowdiar', 'Sreekariyam'],
   'Mumbai': ['Andheri', 'Bandra', 'Kurla', 'Powai'],
   'Bengaluru': ['Koramangala', 'Whitefield', 'Indiranagar', 'HSR Layout'],
   'Delhi-NCR': ['Connaught Place', 'Dwarka', 'Noida', 'Gurugram']
+};
+
+// Added coordinate mapping for Priya's API Contract
+const ZONE_COORDS = {
+  'Sreekariyam': { lat: 8.5489, lon: 76.9172 },
+  'Kazhakkoottam': { lat: 8.5686, lon: 76.8682 },
+  'Palayam': { lat: 8.5036, lon: 76.9535 },
+  'Kowdiar': { lat: 8.5255, lon: 76.9602 },
+  'Kurla': { lat: 19.0728, lon: 72.8793 },
+  'Andheri': { lat: 19.1136, lon: 72.8697 },
+  'Bandra': { lat: 19.0596, lon: 72.8295 },
+  'Powai': { lat: 19.1176, lon: 72.9060 },
+  'Koramangala': { lat: 12.9279, lon: 77.6271 },
+  'Indiranagar': { lat: 12.9716, lon: 77.6411 },
+  'Whitefield': { lat: 12.9698, lon: 77.7499 },
+  'HSR Layout': { lat: 12.9121, lon: 77.6446 },
+  'Connaught Place': { lat: 28.6304, lon: 77.2177 },
+  'Dwarka': { lat: 28.5823, lon: 77.0500 },
+  'Noida': { lat: 28.5355, lon: 77.3910 },
+  'Gurugram': { lat: 28.4595, lon: 77.0266 }
 };
 
 export default function Onboarding() {
@@ -58,13 +79,49 @@ export default function Onboarding() {
     nextStep();
   };
 
-  // MOCK API: Adverse Selection Check (Hidden Trigger: Name = "Demo Error")
-  const checkAdverseSelection = async (name) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    if (name === "Demo Error") {
-      return { lockout_active: true, reason: "IMD Red Alert forecasted within 48h. Policy purchasing is disabled to protect the pool." };
+  // REAL API: Adverse Selection Check (Connected to Priya's ML Engine)
+  const checkAdverseSelection = async (data) => {
+    try {
+      // Pull coordinates, default to 0 if not found
+      const coords = ZONE_COORDS[data.zone] || { lat: 0, lon: 0 };
+      
+      const payload = {
+        zone: data.zone,
+        city: data.city,
+        lat: coords.lat,
+        lon: coords.lon
+      };
+
+      console.log("Checking Lockout Status with Payload:", payload);
+
+      // Connecting to Priya's exact endpoint
+      const response = await fetch('http://localhost:8000/api/v1/premium/lockout-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload) 
+      });
+
+      if (!response.ok) throw new Error("ML API is unreachable");
+
+      const result = await response.json();
+      
+      return { 
+        lockout_active: result.lockout_active, 
+        reason: result.reason 
+      };
+
+    } catch (error) {
+      console.warn("⚠️ Priya's ML Engine is offline. Falling back to Demo Mode.");
+      
+      // DEMO SURVIVAL FALLBACK
+      if (data.name === "Demo Error") {
+        return { 
+          lockout_active: true, 
+          reason: "IMD Red Alert forecasted within 48h. Policy purchasing is disabled to protect the pool." 
+        };
+      }
+      return { lockout_active: false };
     }
-    return { lockout_active: false };
   };
 
   const handleFinalSubmit = async () => {
@@ -78,7 +135,8 @@ export default function Onboarding() {
     setIsSubmitting(true);
 
     try {
-      const lockoutStatus = await checkAdverseSelection(formData.name);
+      // Pass the entire formData object so the function can extract zone, city, and name
+      const lockoutStatus = await checkAdverseSelection(formData);
       
       if (lockoutStatus.lockout_active) {
         setErrorAlert(lockoutStatus.reason);
