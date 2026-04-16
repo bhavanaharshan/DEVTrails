@@ -72,3 +72,17 @@ class TriggerCheckResponse(BaseModel):
     confidence_score: float
     auto_approve: bool
     message: str
+class LockoutRequest(BaseModel):
+    zone: str
+    city: str
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+
+class LockoutResponse(BaseModel):
+    lockout_active: bool
+    zone: str
+    city: str
+    reason: str
+    forecast_rain_mm: Optional[float] = None
+    forecast_temp_c: Optional[float] = None
+    hours_until_alert: Optional[int] = None

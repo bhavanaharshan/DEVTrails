@@ -4,3 +4,10 @@ __pycache__/
 .env
 *.egg-info/
 .pytest_cache/
+venv/
+__pycache__/
+*.pyc
+.env
+*.png
+*.pdf
+*.json

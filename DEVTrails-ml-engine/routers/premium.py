@@ -1,20 +1,55 @@
 from fastapi import APIRouter
+from pydantic import BaseModel
+from schemas.premium_schema import LockoutRequest, LockoutResponse
+from services.lockout_service import check_lockout
+
 from schemas.premium_schema import (
     PremiumRequest, PremiumResponse, RiskBreakdown,
     PayoutRequest, PayoutResponse,
-    TriggerCheckRequest, TriggerCheckResponse, ScenarioResult
+    TriggerCheckRequest, TriggerCheckResponse, ScenarioResult,
+    LockoutRequest, LockoutResponse   # ✅ ADD THIS LINE
 )
 from models.earnings_dna import earnings_profiler
 from models.premium_engine import premium_engine
 from models.disruption_forecast import generate_alert_text
+
 from services.risk_scorer import get_full_risk_scores
 from services.trigger_engine import evaluate_triggers
 from services.payout_service import simulate_upi_payout
 from services.location_service import resolve_location, get_scenarios_for_trigger
+from data.financial_stress_test import run_14day_monsoon_stress, get_risk_signal
+# ✅ NEW: fraud service import
+from services.fraud_service import check_kinematic_fraud
+from data.financial_stress_test import run as run_bcr_test
+from data.generate_bcr_report import main as generate_bcr_pdf
+
+from services.geo_security_service import verify_location
+from pydantic import BaseModel
 router = APIRouter(prefix="/api/v1/premium", tags=["Premium"])
 
 
-# ✅ FIXED: made async (important)
+# =========================
+# ✅ FRAUD REQUEST MODEL
+# =========================
+class FraudRequest(BaseModel):
+    user_id: str
+    claim_lat: float
+    claim_lon: float
+    last_known_lat: float
+    last_known_lon: float
+    time_diff_minutes: float
+    hour_of_day: int | None = None
+
+class VerifyRequest(BaseModel):
+    lat1: float
+    lon1: float
+    lat2: float
+    lon2: float
+
+
+# =========================
+# ✅ PREMIUM CALCULATION
+# =========================
 @router.post("/calculate", response_model=PremiumResponse)
 async def calculate_premium(req: PremiumRequest):
 
@@ -52,7 +87,9 @@ async def calculate_premium(req: PremiumRequest):
     )
 
 
-# ✅ payout endpoint (no changes needed)
+# =========================
+# ✅ PAYOUT
+# =========================
 @router.post("/payout", response_model=PayoutResponse)
 def trigger_payout(req: PayoutRequest):
     result = simulate_upi_payout(
@@ -64,13 +101,12 @@ def trigger_payout(req: PayoutRequest):
     return PayoutResponse(**result)
 
 
-# ✅ already correct (async)
-from services.location_service import resolve_location, get_scenarios_for_trigger
-
+# =========================
+# ✅ TRIGGER CHECK
+# =========================
 @router.post("/trigger-check", response_model=TriggerCheckResponse)
 async def check_triggers(req: TriggerCheckRequest):
 
-    # Resolve location — accept either lat/lon OR city/zone
     if req.lat is not None and req.lon is not None:
         location = resolve_location(req.lat, req.lon)
         city     = location["city"]
@@ -79,13 +115,10 @@ async def check_triggers(req: TriggerCheckRequest):
         city = req.city or "mumbai"
         zone = req.zone or "kurla_mumbai"
 
-    # Get scenarios relevant to Sam's trigger_type
     scenarios = get_scenarios_for_trigger(req.trigger_type)
 
-    # Get live risk scores
     risk_scores = await get_full_risk_scores(city)
 
-    # Evaluate only the relevant scenarios
     result = evaluate_triggers(
         risk_scores, req.weekly_income, req.tier,
         scenarios_to_check=scenarios
@@ -101,12 +134,73 @@ async def check_triggers(req: TriggerCheckRequest):
     scenario_results = [ScenarioResult(**s) for s in result["triggered_scenarios"]]
 
     return TriggerCheckResponse(
-        user_id             = req.user_id,
-        city                = city,
-        any_triggered       = result["any_triggered"],
-        triggered_scenarios = scenario_results,
-        total_payout        = result["total_payout"],
-        confidence_score    = result["confidence_score"],
-        auto_approve        = result["auto_approve"],
-        message             = message,
+        user_id=req.user_id,
+        city=city,
+        any_triggered=result["any_triggered"],
+        triggered_scenarios=scenario_results,
+        total_payout=result["total_payout"],
+        confidence_score=result["confidence_score"],
+        auto_approve=result["auto_approve"],
+        message=message,
     )
+
+
+# =========================
+# 🚨 FRAUD CHECK (NEW)
+# =========================
+@router.post("/fraud-check")
+async def fraud_check(req: FraudRequest):
+    result = await check_kinematic_fraud(
+        user_id=req.user_id,
+        claim_lat=req.claim_lat,
+        claim_lon=req.claim_lon,
+        last_known_lat=req.last_known_lat,
+        last_known_lon=req.last_known_lon,
+        time_diff_minutes=req.time_diff_minutes,
+        hour_of_day=req.hour_of_day,
+    )
+    return result
+
+# =========================
+# 🚫 LOCKOUT CHECK
+# =========================
+@router.post("/lockout-check", response_model=LockoutResponse)
+async def lockout_check(req: LockoutRequest):
+    result = await check_lockout(
+        city=req.city,
+        zone=req.zone,
+        lat=req.lat,
+        lon=req.lon
+    )
+    return LockoutResponse(**result)
+
+
+# =========================
+# 📊 RISK SIGNAL (NEW)
+# =========================
+@router.get("/risk-signal")
+def risk_signal():
+    from data.financial_stress_test import run
+
+    result = run()  # make sure run() RETURNS data
+    return result
+@router.get("/run-bcr")
+async def run_bcr():
+    result = run_bcr_test()
+
+    # generate chart + PDF
+    generate_bcr_pdf()
+
+    return {
+        "message": "BCR test completed and report generated",
+        "data": result
+    }
+@router.post("/verify")
+async def verify(req: VerifyRequest):
+    result = verify_location(
+        req.lat1,
+        req.lon1,
+        req.lat2,
+        req.lon2
+    )
+    return result
