@@ -42,8 +42,10 @@ def root():
     return {"status": "alive"}
 
 @app.on_event("startup")
-def startup_event():
-    print("🚀 ML Engine started successfully")
+def load_model():
+    global model
+    model = load_your_model()
+    print("Model loaded")
 
 @app.get("/health")
 def health():
