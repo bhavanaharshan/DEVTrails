@@ -390,7 +390,8 @@ Three data types collected. Each with an explicit, **un-pre-checked** consent bo
 
 ---
 
-**[ PUT THIS HERE — Screenshot of the DPDP 3-consent onboarding flow UI ]**
+<img width="1662" height="909" alt="image" src="https://github.com/user-attachments/assets/5a317190-b999-44b4-bfb3-d181a95b1b74" />
+
 
 ---
 
