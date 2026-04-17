@@ -6,6 +6,7 @@
 <img src="https://img.shields.io/badge/Parametric_Insurance-Income_Protection-2ECC71?style=for-the-badge"/>
 
 <br/>
+<br/>
 
 [![BCR](https://img.shields.io/badge/BCR-0.67%20Stress%20Tested-2ECC71?style=for-the-badge&logo=chartdotjs&logoColor=white)](/)
 [![IRDAI](https://img.shields.io/badge/IRDAI-Compliant%20Architecture-1A5276?style=for-the-badge&logo=shield&logoColor=white)](/)
@@ -14,18 +15,30 @@
 [![Zero Trust](https://img.shields.io/badge/Zero--Trust-Hardware%20Handshake-E74C3C?style=for-the-badge&logo=datadog&logoColor=white)](/)
 [![Docker](https://img.shields.io/badge/Docker-Multi--Container-2496ED?style=for-the-badge&logo=docker&logoColor=white)](/)
 [![UPI](https://img.shields.io/badge/UPI%20AutoPay-Micro%20Deductions-F39C12?style=for-the-badge)](/)
-</br>
+
+<br/>
+<br/>
+
 <img src="https://img.shields.io/badge/React-PWA-61DAFB?style=flat-square&logo=react&logoColor=black"/>
 <img src="https://img.shields.io/badge/Node.js-Express-339933?style=flat-square&logo=nodedotjs&logoColor=white"/>
 <img src="https://img.shields.io/badge/FastAPI-Python-009688?style=flat-square&logo=fastapi&logoColor=white"/>
 <img src="https://img.shields.io/badge/PostgreSQL-PostGIS-4169E1?style=flat-square&logo=postgresql&logoColor=white"/>
 <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white"/>
 <img src="https://img.shields.io/badge/XGBoost-ML_Engine-FF6600?style=flat-square"/>
+
+<br/>
+<br/>
+
 <p align="center">
   <a href="https://youtu.be/ArMU9lqm6jU">
     <img src="https://img.shields.io/badge/Watch-Demo%20Video-FF003C?style=for-the-badge&logo=youtube&logoColor=white"/>
   </a>
+  <a href="https://drive.google.com/drive/folders/1-4tH2nAV8p89iXrHkJ2WtXvpOVPL0Sbv?usp=sharing">
+    <img src="https://img.shields.io/badge/Pitch%20Deck-%20Presentation-06B6D4?style=for-the-badge&logo=googledrive&logoColor=white"/>
+  </a>
 </p>
+
+</div>
 
 ### Why Jugaad?
 
@@ -654,9 +667,8 @@ gigshield/
 | Deliverable | Status |
 |---|---|
 | ✅ 5-minute demo video | **[ PUT THIS HERE — Add video link ]** |
-| ✅ Pitch deck (PDF) | **[ PUT THIS HERE — Add deck link ]** |
+| ✅ Pitch deck (PDF) | **[[ Click here]](https://drive.google.com/drive/folders/1-4tH2nAV8p89iXrHkJ2WtXvpOVPL0Sbv?usp=sharing)** |
 | ✅ Source code (default branch) | This repository |
-| ✅ README with run instructions | You are reading it |
 | 🔄 Deployed app (preferred) | In progress — see [Deployed App](#-deployed-app) |
 | ✅ BCR simulation artifact | `/ml/reports/bcr_simulation.pdf` |
 | ✅ Docker Compose (local setup) | `docker-compose up --build` |
