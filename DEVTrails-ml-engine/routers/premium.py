@@ -169,16 +169,16 @@ async def check_triggers(req: TriggerCheckRequest):
 @router.post("/fraud-check")
 async def fraud_check(req: FraudRequest):
 
-    result = await verify_final(
-        user_id=req.user_id,
-        frame_b64="dummy_for_now",   # for now (Samridhi doesn’t send image)
-        relationships=[],           # optional for now
-        claim_lat=req.claim_lat,
-        claim_lon=req.claim_lon,
-        last_lat=req.last_known_lat,
-        last_lon=req.last_known_lon,
-        time_diff_minutes=req.time_diff_minutes
-    )
+    result = await verify_final_api({
+    "user_id": req.user_id,
+    "frame_b64": "dummy_for_now",
+    "relationships": [],
+    "claim_lat": req.claim_lat,
+    "claim_lon": req.claim_lon,
+    "last_lat": req.last_known_lat,
+    "last_lon": req.last_known_lon,
+    "time_diff_minutes": req.time_diff_minutes
+})
 
     return result
 
