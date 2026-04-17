@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers.premium import router as premium_router
 from apscheduler.schedulers.background import BackgroundScheduler
 from services.recalibration_service import recalibrate_all_zones
+import os
 
 app = FastAPI(
     title="GigShield ML Engine",
@@ -19,10 +20,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ IMPORTANT: add prefix for production style
-app.include_router(premium_router, prefix="/api")
+# ✅ FIXED: removed extra prefix
+app.include_router(premium_router)
 
-# Scheduler
+# Scheduler (disable for Render to avoid crashes)
 scheduler = BackgroundScheduler()
 scheduler.add_job(
     recalibrate_all_zones,
@@ -32,7 +33,13 @@ scheduler.add_job(
     minute=0,
     id="weekly_recalibration"
 )
-scheduler.start()
+
+# ❗ Comment this for Render deployment
+# scheduler.start()
+
+@app.get("/")
+def root():
+    return {"message": "GigShield ML Engine Running"}
 
 @app.get("/health")
 def health():
