@@ -128,6 +128,29 @@ Every trigger uses **objective, third-party, government-verified data.** No form
 <img width="1017" height="1022" alt="image" src="https://github.com/user-attachments/assets/f492b3d2-a98a-428a-8235-fb2046f33987" />
 
 ---
+### 🔗 Core Backend APIs
+
+| Endpoint | Purpose |
+|----------|--------|
+| `/api/users/active` | Returns live active workers with location |
+| `/api/claims/trigger` | Receives validated triggers and records payouts |
+| `/api/admin/metrics` | Dashboard stats + fraud queue |
+
+#### Claim Trigger Webhook
+
+```http
+POST /api/claims/trigger
+Content-Type: application/json
+
+{
+  "user_id": "worker_123",
+  "scenario": "heavy_rain",
+  "confidence": 0.91,
+  "payout": 680
+}
+```
+
+---
 
 ### Trigger → Payout flow (60 seconds to 2 hours)
 
