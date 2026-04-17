@@ -287,6 +287,28 @@ Layer 4 — Ring Detection (Sybil Defense)
 **[ PUT THIS HERE — Screenshot of the red Security Lockout screen UI ]**
 
 ---
+## ⚙️ Fault Tolerance & Reliability
+
+To ensure uninterrupted service during external API failures:
+
+### 🧠 Safe Fallback Mechanism
+
+- If Open-Meteo / CPCB APIs fail:
+  → Use last known valid data snapshot (cached in Redis)
+
+- If API latency exceeds threshold:
+  → Trigger retry with exponential backoff
+
+- If all sources fail:
+  → System enters **grace mode**
+  → Critical payouts (SOS / high confidence cases) still processed
+
+```js
+if (!weatherAPI.available()) {
+    data = cache.get("last_valid_weather");
+}
+```
+---
 
 ## 💰 Premium & Payout Model
 
