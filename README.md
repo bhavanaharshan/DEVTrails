@@ -474,7 +474,8 @@ cd gigshield
 cp .env.example .env
 
 # 3. Boot the entire stack
-docker-compose up --build
+docker-compose build --no-cache
+docker compose up
 ```
 
 
