@@ -1,3 +1,5 @@
+
+from services.risk_aggregator import compute_final_risk
 from fastapi import APIRouter
 from pydantic import BaseModel
 from schemas.premium_schema import LockoutRequest, LockoutResponse
@@ -60,12 +62,23 @@ async def calculate_premium(req: PremiumRequest):
 
     # Step 2 — Disruption forecast scores (async)
     risk_scores = await get_full_risk_scores(req.city)
+    final_risk = compute_final_risk(risk_scores, req.city)
+    risk_score = final_risk["risk_score"]
 
     # Step 3 — Premium calculation
     result = premium_engine.calculate(
         req.weekly_income, req.city, req.zone, req.platform,
         req.shift_window, req.tier_preference, risk_scores
     )
+    premium = result["premium_amount"]
+
+    if risk_score > 0.7:
+        premium *= 1.1
+    elif risk_score < 0.4:
+        premium *= 0.9
+
+    premium = round(premium, 2)
+    result["premium_amount"] = premium
 
     # Step 4 — Max payout
     daily_payout = dna["daily_income_estimate"] * (result["coverage_percentage"] / 100)
@@ -118,11 +131,16 @@ async def check_triggers(req: TriggerCheckRequest):
     scenarios = get_scenarios_for_trigger(req.trigger_type)
 
     risk_scores = await get_full_risk_scores(city)
+    final_risk = compute_final_risk(risk_scores, city)
+    risk_score = final_risk["risk_score"]
 
     result = evaluate_triggers(
         risk_scores, req.weekly_income, req.tier,
         scenarios_to_check=scenarios
     )
+    if risk_score > 0.7:
+        result["auto_approve"] = True
+        result["confidence_score"] = max(result["confidence_score"], 0.9)
 
     if not result["any_triggered"]:
         message = "No disruptions detected in your zone. Stay safe."
@@ -227,3 +245,26 @@ async def verify_final_api(data: dict):
         last_lon=data["last_lon"],
         time_diff_minutes=data["time_diff_minutes"]
     )
+# =========================
+# 🤖 ML RISK PREDICTION (NEW)
+# =========================
+@router.get("/predict-risk")
+async def predict_risk(city: str = "mumbai"):
+    """
+    Live ML-style risk scoring endpoint
+    """
+
+    # Step 1 — get scenario risks (you already built this)
+    risk_scores = await get_full_risk_scores(city)
+
+    # Step 2 — aggregate into final ML score
+    final = compute_final_risk(risk_scores, city)
+
+    return {
+        "city": city,
+        "risk_score": final["risk_score"],
+        "claim_probability": final["claim_probability"],
+        "risk_tier": final["risk_tier"],
+        "lockout_recommended": final["lockout_recommended"],
+        "risk_breakdown": risk_scores
+    }

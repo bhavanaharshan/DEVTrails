@@ -28,7 +28,7 @@ TIER_CONFIG = {
 }
 
 # ── Claim realism ─────────────────────────────────────────────
-CLAIM_SUCCESS_RATE = 0.85
+CLAIM_SUCCESS_RATE = 0.95
 
 # ── Weather thresholds ────────────────────────────────────────
 RAIN_THRESHOLD_MM = 25.0
@@ -157,7 +157,7 @@ def run_14day_monsoon_stress(all_data):
                 triggers["worst_week_triggers"] / 7
             ) / 2
 
-            day_prob = min(base_prob * storm_multiplier(day), 0.60)
+            day_prob = min(base_prob * storm_multiplier(day) * 1.25, 0.72)
 
             daily_income = zone["avg_weekly_income"] / 7
             payout = daily_income * tier["coverage"]

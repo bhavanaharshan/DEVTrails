@@ -1,7 +1,9 @@
 import numpy as np
-import xgboost as xgb
 import json, os
+from sklearn.ensemble import GradientBoostingRegressor  # ✅ REPLACED
+
 from services.recalibration_service import get_zone_multiplier
+
 ZONE_DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/mock_zone_history.json")
 
 with open(ZONE_DATA_PATH) as f:
@@ -41,9 +43,11 @@ def _generate_training_data():
             aqi_risk * 0.05 + fog_risk * 0.03 + bandh_risk * 0.03 +
             cong_risk * 0.02 + outage_risk * 0.02
         )
-        rows.append([city_risk, shift_factor, plat_factor, zone_factor,
-                     rain_risk, heat_risk, aqi_risk, fog_risk,
-                     bandh_risk, cong_risk, outage_risk, multiplier])
+        rows.append([
+            city_risk, shift_factor, plat_factor, zone_factor,
+            rain_risk, heat_risk, aqi_risk, fog_risk,
+            bandh_risk, cong_risk, outage_risk, multiplier
+        ])
 
     data = np.array(rows)
     return data[:, :-1], data[:, -1]
@@ -53,7 +57,12 @@ class PremiumEngine:
     PLATFORM_MAP = {"zomato": 1.05, "swiggy": 1.00}
 
     def __init__(self):
-        self.model = xgb.XGBRegressor(n_estimators=100, max_depth=4, random_state=42)
+        # ✅ LIGHTWEIGHT MODEL (replaces XGBoost)
+        self.model = GradientBoostingRegressor(
+            n_estimators=100,
+            max_depth=3,
+            random_state=42
+        )
         self._train()
 
     def _train(self):
@@ -82,8 +91,9 @@ class PremiumEngine:
         ml_multiplier   = float(self.model.predict(features)[0])
         zone_adjustment = get_zone_multiplier(city, zone)
         multiplier      = ml_multiplier * zone_adjustment
-        base_premium  = weekly_income * 0.018
-        adjusted      = base_premium * multiplier
+
+        base_premium = weekly_income * 0.018
+        adjusted     = base_premium * multiplier
 
         # Affordability cap ₹29–₹99
         final_premium = round(max(29, min(99, adjusted)), 2)
