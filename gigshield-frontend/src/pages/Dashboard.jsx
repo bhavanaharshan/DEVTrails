@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext'; 
 import { io } from 'socket.io-client'; 
 import { 
-  Menu, X, Home, Truck, User, Zap, ShieldCheck, WifiOff, AlertTriangle, Phone, MapPin
+  Menu, X, Home, Truck, User, Zap, ShieldCheck, WifiOff, AlertTriangle, 
+  Phone, MapPin, RefreshCw, Lock, Unlock, CheckCircle2, Timer 
 } from 'lucide-react';
 
-// The centralized tunnel address provided by Neema
 const BACKEND_URL = 'https://rebound-estimate-glue.ngrok-free.dev';
 
 export default function Dashboard() {
@@ -22,10 +22,11 @@ export default function Dashboard() {
     zone: localStorage.getItem('gs_zone') || "Pending Zone",
     mobile: user?.phoneNumber || "+91 00000 00000",
     platforms: JSON.parse(localStorage.getItem('gs_platforms') || '[]'),
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || "demo"}`
+    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || "demo"}`,
+    days_worked_count: 0, 
+    ss_eligible: false
   });
 
-  // 1. Network & Offline SOS Logic
   useEffect(() => {
     const handleOffline = () => setIsOffline(true);
     const handleOnline = () => setIsOffline(false);
@@ -72,16 +73,12 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen bg-[#0F0F1A] text-white font-sans overflow-hidden">
-      
-      {/* Offline SOS SMS Banner */}
       <AnimatePresence>
         {isOffline && (
           <motion.div initial={{ y: -50 }} animate={{ y: 0 }} exit={{ y: -50 }} className="fixed top-0 left-0 w-full bg-red-600 text-white p-3 z-[100] flex justify-center items-center gap-4 shadow-2xl">
             <WifiOff size={20} />
-            <span className="font-bold text-sm">Network Offline. SOS Fallback Active.</span>
-            <a href={`sms:+919876543210?body=${sosPayload}`} className="bg-white text-red-600 px-4 py-1 rounded-full font-black text-xs uppercase tracking-wider shadow-lg">
-              Send SMS Claim
-            </a>
+            <span className="font-bold text-sm tracking-wide">Network Offline. SOS Fallback Active.</span>
+            <a href={`sms:+919876543210?body=${sosPayload}`} className="bg-white text-red-600 px-4 py-1 rounded-full font-black text-xs uppercase tracking-wider shadow-lg">Send SMS Claim</a>
           </motion.div>
         )}
       </AnimatePresence>
@@ -105,86 +102,66 @@ export default function Dashboard() {
         </header>
 
         <main className="flex-1 w-full flex flex-col">
-          {activePage === 'dashboard' && <DashboardView profile={profile} />}
-          {activePage === 'profile' && <ProfileView profile={profile} />}
+          {activePage === 'dashboard' && <DashboardView profile={profile} setProfile={setProfile} />}
+          {activePage === 'profile' && <ProfileView profile={profile} setProfile={setProfile} />}
         </main>
       </div>
     </div>
   );
 }
 
-// ---------------------------------------------------------
-// DASHBOARD VIEW (Zero-Trust Logic)
-// ---------------------------------------------------------
-const DashboardView = ({ profile }) => {
+const DashboardView = ({ profile, setProfile }) => {
   const [securityStatus, setSecurityStatus] = useState('scanning'); 
   const [fraudReason, setFraudReason] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // 1. Zero-Trust Security Handshake
+  // 1. Engagement thresholds for Social Security Gateway
+  const platformMode = profile.platforms.length > 1 ? 'multi' : 'single';
+  const targetDays = platformMode === 'single' ? 90 : 120;
+  const daysRemaining = Math.max(targetDays - profile.days_worked_count, 0);
+  const progressPercent = Math.min((profile.days_worked_count / targetDays) * 100, 100);
+
+  // 2. Initial Sync Simulation (The 50-Day Scenario)
+  const handleInitialSync = async () => {
+    setIsSyncing(true);
+    setTimeout(async () => {
+      const historicalDays = 95; 
+      try {
+        await fetch(`${BACKEND_URL}/api/user/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: profile.id,
+            daysWorked: historicalDays,
+            platformMode: platformMode,
+            upi_id: "verified_user@upi"
+          })
+        });
+        setProfile(prev => ({ 
+          ...prev, 
+          days_worked_count: historicalDays,
+          ss_eligible: (platformMode === 'single' && historicalDays >= 90) || (platformMode === 'multi' && historicalDays >= 120)
+        }));
+      } catch (err) { console.error("Sync failed"); }
+      setIsSyncing(false);
+    }, 2000);
+  };
+
+  // 3. Socket Connection (Listen for Real-time stat updates)
   useEffect(() => {
-    const runSecurityScan = async () => {
-      setSecurityStatus('scanning');
-      
-      if (!("geolocation" in navigator)) {
-        setSecurityStatus('compromised');
-        setFraudReason('Hardware Violation: Geolocation API missing.');
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(async (pos) => {
-        try {
-          const response = await fetch(`${BACKEND_URL}/api/security/verify-location`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'ngrok-skip-browser-warning': 'true' // Bypasses ngrok splash screen
-            },
-            body: JSON.stringify({
-              user_id: profile.id, // Payload aligned with Neema's server.js
-              declared_location_text: profile.zone, // Updated key for backend geocoding
-              device_lat: pos.coords.latitude,
-              device_lon: pos.coords.longitude
-            })
-          });
-
-          if (!response.ok) throw new Error("Security handshake failed");
-
-          const data = await response.json();
-          if (data.secure === true) {
-            setSecurityStatus('secure');
-          } else {
-            setSecurityStatus('compromised');
-            setFraudReason(data.reason || "Kinematic Violation: Physical location mismatch detected.");
-          }
-        } catch (err) {
-          setSecurityStatus('compromised');
-          setFraudReason('Zero-Trust Violation: Security Handshake Failed or Server Offline.');
-        }
-      }, (err) => {
-        // If offline, do not lock based on hardware failure to allow SOS protocol
-        if (!navigator.onLine) {
-           setSecurityStatus('secure');
-        } else {
-           setSecurityStatus('compromised');
-           setFraudReason('Hardware Violation: Location access blocked or timed out.');
-        }
-      });
-    };
-
-    if (profile.zone !== "Pending Zone") runSecurityScan();
-  }, [profile.zone, profile.id]);
-
-  // 2. Socket Connection for Real-time Weather Triggers
-  useEffect(() => {
-    const socket = io(BACKEND_URL, {
-        extraHeaders: {
-            "ngrok-skip-browser-warning": "true"
-        }
-    });
-
+    const socket = io(BACKEND_URL, { extraHeaders: { "ngrok-skip-browser-warning": "true" } });
     socket.emit('join-zone', profile.zone);
     
+    // Real-time update for Engagement Rules
+    socket.on('update-stats', (data) => {
+      setProfile(prev => ({ 
+        ...prev, 
+        days_worked_count: data.days_worked_count,
+        ss_eligible: data.ss_eligible
+      }));
+    });
+
     socket.on('claim-notification', () => {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 8000);
@@ -193,39 +170,92 @@ const DashboardView = ({ profile }) => {
     return () => socket.disconnect();
   }, [profile.zone]);
 
+  // Zero-Trust Security Handshake
+  useEffect(() => {
+    const runSecurityScan = async () => {
+      setSecurityStatus('scanning');
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        try {
+          const response = await fetch(`${BACKEND_URL}/api/security/verify-location`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+            body: JSON.stringify({
+              user_id: profile.id, 
+              declared_location_text: profile.zone, 
+              device_lat: pos.coords.latitude,
+              device_lon: pos.coords.longitude
+            })
+          });
+          const data = await response.json();
+          setSecurityStatus(data.secure ? 'secure' : 'compromised');
+          if (!data.secure) setFraudReason(data.reason);
+        } catch (err) {
+          setSecurityStatus('compromised');
+          setFraudReason('Zero-Trust Violation: Security Handshake Failed.');
+        }
+      });
+    };
+    if (profile.zone !== "Pending Zone") runSecurityScan();
+  }, [profile.zone, profile.id]);
+
   return (
     <div className="p-4 md:p-10 flex flex-col gap-6 relative min-h-full">
-      
-      {/* Security Lockout UI */}
       <AnimatePresence>
         {securityStatus === 'compromised' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center p-6 backdrop-blur-xl border border-red-500/30">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center p-6 backdrop-blur-xl">
             <AlertTriangle size={64} className="text-red-500 mb-4" />
-            <h2 className="text-3xl font-black text-red-500 mb-2 uppercase italic tracking-tighter text-center">Security Lockout</h2>
+            <h2 className="text-3xl font-black text-red-500 mb-2 uppercase italic">Security Lockout</h2>
             <p className="text-gray-300 font-bold mb-8 text-center max-w-md">{fraudReason}</p>
-            <p className="text-[10px] text-gray-600 uppercase tracking-widest font-mono">Protocol: Zero-Trust Hardware Verification</p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Instant Payout Notification */}
-      <AnimatePresence>
-        {showSuccess && (
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-green-600 text-white p-8 rounded-3xl shadow-2xl border-4 border-green-400 mb-4">
-            <div className="flex items-center gap-4 mb-2"><Zap size={32} className="text-yellow-300" /><h2 className="text-3xl font-black italic uppercase">Severe Weather Detected</h2></div>
-            <p className="font-bold text-lg">Parametric payout of <span className="text-2xl font-black underline italic">₹350</span> credited instantly.</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="flex justify-between items-center bg-[#161622] border border-white/5 p-4 px-6 rounded-2xl shadow-lg">
-        <div className="flex items-center gap-3">
-          <ShieldCheck className={securityStatus === 'secure' ? "text-green-500" : "text-orange-500 animate-pulse"} size={22} />
-          <span className="text-xs font-black uppercase tracking-widest text-gray-400">
-            Hardware Health: <span className={securityStatus === 'secure' ? "text-green-500" : "text-orange-500"}>{securityStatus.toUpperCase()}</span>
-          </span>
+      {/* 1. SOCIAL SECURITY GATEWAY (Progress & Locked/Unlocked UI) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Progress Card */}
+        <div className="bg-[#161622] p-8 rounded-3xl border border-white/5 shadow-xl">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Work Engagement Ledger</h3>
+            <button onClick={handleInitialSync} disabled={isSyncing} className="bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-all">
+              <RefreshCw className={isSyncing ? "animate-spin" : ""} size={16} />
+            </button>
+          </div>
+          <div className="flex justify-between items-end mb-4">
+            <p className="text-4xl font-black italic">{profile.days_worked_count}<span className="text-gray-600 text-lg ml-2">Days</span></p>
+            <p className="text-[10px] font-black uppercase text-orange-500">{daysRemaining} To Eligibility</p>
+          </div>
+          <div className="h-4 w-full bg-gray-800 rounded-full border border-white/5 p-1 mb-4">
+            <motion.div 
+              initial={{ width: 0 }} 
+              animate={{ width: `${progressPercent}%` }} 
+              className="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.3)]" 
+            />
+          </div>
+          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+            Mode: {platformMode === 'multi' ? 'Multi-Apping (120D)' : 'Single Platform (90D)'}
+          </p>
         </div>
-        {securityStatus === 'secure' && <div className="flex items-center gap-2"><div className="w-2 h-2 bg-green-500 rounded-full animate-ping" /><span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Live Monitoring</span></div>}
+
+        {/* Locked/Unlocked Benefits Card */}
+        <motion.div 
+          animate={{ backgroundColor: profile.ss_eligible ? "rgba(79, 70, 229, 0.1)" : "rgba(31, 31, 46, 1)" }}
+          className={`p-8 rounded-3xl border-2 transition-all duration-700 relative overflow-hidden ${profile.ss_eligible ? 'border-indigo-500/40' : 'border-white/5'}`}
+        >
+          <div className="flex justify-between items-start mb-8">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${profile.ss_eligible ? 'bg-indigo-500 text-white' : 'bg-gray-800 text-gray-600'}`}>
+              {profile.ss_eligible ? <Unlock size={24} /> : <Lock size={24} />}
+            </div>
+            {profile.ss_eligible && <span className="bg-green-500 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full animate-bounce">Verified Badge</span>}
+          </div>
+          <h3 className="text-xl font-black mb-1">State Social Security</h3>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Payout Eligibility Status</p>
+          
+          <button disabled={!profile.ss_eligible} className={`w-full py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all ${
+            profile.ss_eligible ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg' : 'bg-gray-800 text-gray-600 opacity-50 cursor-not-allowed'
+          }`}>
+            {profile.ss_eligible ? "Claim Social Payout" : "Threshold Not Met"}
+          </button>
+        </motion.div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -235,22 +265,7 @@ const DashboardView = ({ profile }) => {
         </div>
         <div className="bg-[#161622] p-8 rounded-3xl border border-white/5 shadow-xl group">
           <p className="text-5xl font-black mb-2 tracking-tighter transition-colors group-hover:text-orange-500">5.4 <span className="text-2xl text-gray-600 font-normal">hrs</span></p>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Duty Time</p>
-        </div>
-      </div>
-
-      <div className="bg-[#161622] border border-white/5 rounded-3xl p-8 flex-1 shadow-xl">
-        <h3 className="font-black text-white text-xl mb-6 uppercase tracking-tight">Active Protection Log</h3>
-        <div className="space-y-4">
-          {['Hardware Geo-Sync', 'Encrypted Payout Channel', 'Weather API Stream'].map((log, i) => (
-            <div key={i} className="flex justify-between items-center p-4 bg-[#0F0F1A] rounded-2xl border border-white/5">
-              <div className="flex items-center gap-4">
-                <div className="w-8 h-8 bg-green-500/10 rounded-lg flex items-center justify-center text-green-500 font-bold text-xs">OK</div>
-                <p className="font-bold text-sm text-gray-400">{log}</p>
-              </div>
-              <p className="font-black text-gray-600 text-[10px] uppercase">Verified</p>
-            </div>
-          ))}
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Shift</p>
         </div>
       </div>
     </div>
@@ -260,13 +275,13 @@ const DashboardView = ({ profile }) => {
 const ProfileView = ({ profile }) => (
   <div className="p-6 md:p-10 max-w-2xl mx-auto w-full">
     <div className="bg-[#161622] rounded-3xl border border-white/5 p-8 flex flex-col items-center shadow-2xl">
-      <div className="w-32 h-32 rounded-full border-4 border-orange-500/30 overflow-hidden mb-6 shadow-xl shadow-orange-500/10">
+      <div className="w-32 h-32 rounded-full border-4 border-orange-500/30 overflow-hidden mb-6 shadow-xl">
         <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
       </div>
       <h2 className="text-3xl font-black italic mb-2 tracking-tighter text-white">{profile.name}</h2>
       <p className="text-orange-500 font-bold uppercase tracking-widest text-xs mb-8">Verified Partner • {profile.zone}</p>
       
-      <div className="w-full space-y-3 text-left">
+      <div className="w-full space-y-3">
         <div className="flex items-center gap-4 bg-[#0F0F1A] p-4 rounded-2xl border border-white/5">
           <Phone className="text-orange-500/50" size={18} />
           <div><p className="text-[8px] uppercase text-gray-500 font-bold">Mobile</p><p className="font-bold text-sm text-white">{profile.mobile}</p></div>
@@ -274,6 +289,10 @@ const ProfileView = ({ profile }) => (
         <div className="flex items-center gap-4 bg-[#0F0F1A] p-4 rounded-2xl border border-white/5">
           <MapPin className="text-orange-500/50" size={18} />
           <div><p className="text-[8px] uppercase text-gray-500 font-bold">Zone</p><p className="font-bold text-sm text-white">{profile.zone}</p></div>
+        </div>
+        <div className="flex items-center gap-4 bg-[#0F0F1A] p-4 rounded-2xl border border-white/5">
+          <ShieldCheck className={profile.ss_eligible ? "text-green-500" : "text-gray-500"} size={18} />
+          <div><p className="text-[8px] uppercase text-gray-500 font-bold">Social Security Status</p><p className="font-bold text-sm text-white uppercase">{profile.ss_eligible ? 'Eligible' : 'Ineligible'}</p></div>
         </div>
       </div>
     </div>
