@@ -44,8 +44,8 @@ def root():
 @app.on_event("startup")
 def load_model():
     global model
-    model = load_your_model()
-    print("Model loaded")
+    print("ML model loaded (dummy)")
+    model = {}
 
 @app.get("/health")
 def health():
