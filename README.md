@@ -231,9 +231,11 @@ Calibrated BCR  =  0.67
 ✓ PDF + graph artifact generated → /ml/reports/bcr_simulation.pdf
 ```
 
----
+<img width="563" height="296" alt="image" src="https://github.com/user-attachments/assets/824be6c5-dde6-424b-93a8-d67865cefcc2" />
+</br>
 
-**[ PUT THIS HERE — BCR simulation graph (output of /ml/bcr_simulation.py) ]**
+<img width="563" height="296" alt="image" src="https://github.com/user-attachments/assets/87910e82-1c23-4405-a5b6-7b57e30f1750" />
+
 
 ---
 
