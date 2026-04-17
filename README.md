@@ -632,25 +632,6 @@ gigshield/
 
 ---
 
-## 🗺️ Diagrams & Visual Reference
-
-> All diagrams should live in `/docs/diagrams/` and be linked below:
-
-| Diagram | Description | Status |
-|---|---|---|
-| **[ PUT THIS HERE ]** System Architecture | Full service diagram with data flow | Add `/docs/diagrams/architecture.png` |
-| **[ PUT THIS HERE ]** Trigger-to-Payout Flow | Step-by-step claim processing pipeline | Add `/docs/diagrams/trigger_flow.png` |
-| **[ PUT THIS HERE ]** BCR Simulation Graph | 14-day premium vs payout curves, BCR=0.67 | Output of `bcr_simulation.py` |
-| **[ PUT THIS HERE ]** Zero-Trust Handshake | Device GPS → Nominatim → ML → lockout | Add `/docs/diagrams/zero_trust.png` |
-| **[ PUT THIS HERE ]** Security Lockout UI | Red screen kinematic violation screenshot | Add `/docs/screenshots/lockout.png` |
-| **[ PUT THIS HERE ]** DPDP Consent Flow UI | 3-screen onboarding consent screenshots | Add `/docs/screenshots/consent.png` |
-| **[ PUT THIS HERE ]** Ward-Level Geo Mapping | Municipal ward vs 15km radius comparison | Add `/docs/diagrams/geo_precision.png` |
-| **[ PUT THIS HERE ]** Sybil Ring Graph | Shared UPI/device ID network visualization | Output of admin graph endpoint |
-| **[ PUT THIS HERE ]** Worker Dashboard | Live coverage + payout status screenshot | Add `/docs/screenshots/dashboard.png` |
-| **[ PUT THIS HERE ]** Admin Hub | Loss ratio + fraud queue screenshot | Add `/docs/screenshots/admin.png` |
-
----
-
 ## 👥 Team
 
 | Member | Domain | Key Contributions |
