@@ -39,7 +39,11 @@ scheduler.add_job(
 
 @app.get("/")
 def root():
-    return {"message": "GigShield ML Engine Running"}
+    return {"status": "alive"}
+
+@app.on_event("startup")
+def startup_event():
+    print("🚀 ML Engine started successfully")
 
 @app.get("/health")
 def health():
@@ -56,4 +60,5 @@ def run_recalibration_now():
 
 @app.on_event("shutdown")
 def shutdown_scheduler():
-    scheduler.shutdown()
+    if scheduler.running:
+        scheduler.shutdown()
