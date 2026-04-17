@@ -15,7 +15,7 @@ services:
       - db
 
   frontend:
-    build: ./neema-frontend
+    build: ./gigshield-frontend
     ports:
       - "3000:3000"
     stdin_open: true # Required for React
