@@ -2,30 +2,64 @@
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:001219,30:005F73,60:0A9396,85:94D2BD,100:E9D8A6&height=220&section=header&text=Jugaad&fontSize=72&fontColor=FFFFFF&fontAlignY=38&desc=Parametric%20Income%20Insurance%20for%20India's%20Gig%20Workers&descAlignY=58&descSize=18" width="100%"/>
 
+<img src="https://img.shields.io/badge/DEVTrails_2026-Guidewire_Software-FFD700?style=for-the-badge&logoColor=black"/>
+<img src="https://img.shields.io/badge/Parametric_Insurance-Income_Protection-2ECC71?style=for-the-badge"/>
+
 <br/>
 
 [![BCR](https://img.shields.io/badge/BCR-0.67%20Stress%20Tested-2ECC71?style=for-the-badge&logo=chartdotjs&logoColor=white)](/)
 [![IRDAI](https://img.shields.io/badge/IRDAI-Compliant%20Architecture-1A5276?style=for-the-badge&logo=shield&logoColor=white)](/)
+<img src="https://img.shields.io/badge/SS_Code_2020-90%2F120_Day_Rule-16A085?style=for-the-badge"/>
 [![DPDP Act](https://img.shields.io/badge/DPDP%20Act%202023-Consent%20Flow%20Built-8E44AD?style=for-the-badge)](/)
 [![Zero Trust](https://img.shields.io/badge/Zero--Trust-Hardware%20Handshake-E74C3C?style=for-the-badge&logo=datadog&logoColor=white)](/)
 [![Docker](https://img.shields.io/badge/Docker-Multi--Container-2496ED?style=for-the-badge&logo=docker&logoColor=white)](/)
 [![UPI](https://img.shields.io/badge/UPI%20AutoPay-Micro%20Deductions-F39C12?style=for-the-badge)](/)
-
-<br/>
-
-[![Guidewire DEVTrails](https://img.shields.io/badge/Guidewire_DEVTrails-2026-0EA5E9?style=for-the-badge)](#)
-[![Phase 3](https://img.shields.io/badge/Phase3-App%20Completed-06B6D4?style=for-the-badge)](#)
-
+</br>
+<img src="https://img.shields.io/badge/React-PWA-61DAFB?style=flat-square&logo=react&logoColor=black"/>
+<img src="https://img.shields.io/badge/Node.js-Express-339933?style=flat-square&logo=nodedotjs&logoColor=white"/>
+<img src="https://img.shields.io/badge/FastAPI-Python-009688?style=flat-square&logo=fastapi&logoColor=white"/>
+<img src="https://img.shields.io/badge/PostgreSQL-PostGIS-4169E1?style=flat-square&logo=postgresql&logoColor=white"/>
+<img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white"/>
+<img src="https://img.shields.io/badge/XGBoost-ML_Engine-FF6600?style=flat-square"/>
 <p align="center">
   <a href="https://youtu.be/ArMU9lqm6jU">
     <img src="https://img.shields.io/badge/Watch-Demo%20Video-FF003C?style=for-the-badge&logo=youtube&logoColor=white"/>
   </a>
 </p>
 
-> **Brief Pitch:** Jugaad is a parametric insurance platform built to protect the livelihoods of food delivery workers from uncontrollable external disruptions. When the weather stops deliveries, their income shouldn’t stop too.
+### Why Jugaad?
+
+> **Bharat Harshan - a 28 year old Zomato rider from Kurla, Mumbai.**  
+> It's Tuesday, 6 PM. Peak delivery hour. Then the monsoon hits. In 20 minutes, orders in his zone crash by **70%**. Customers pay surge pricing. The platform keeps earning. Ravi ends the night with barely **₹90**.
+>
+> **He didn’t fail to work. The weather failed him.** That’s why **Jugaad** exists.
+>
+> Rainfall crosses **25 mm/hr**. The trigger fires. GPS verifies his zone. **₹680 lands in his UPI.** No forms. No claims. No waiting.
+>
+> *Because insurance shouldn’t begin after the crisis. It should respond the moment the crisis starts.*
+
+---
 
 </div>
 
+<br/>
+
+## Table of Contents
+
+- [What is Jugaad?](#-what-is-gigshield)
+- [The 7 Scenarios We Cover](#️-the-7-scenarios-we-cover)
+- [System Architecture](#️-system-architecture)
+- [ML & AI Engine](#-ml--ai-engine)
+- [Zero-Trust Security](#-zero-trust-security--anti-spoofing)
+- [Premium & Payout Model](#-premium--payout-model)
+- [IRDAI Compliance Checklist](#-irdai-compliance-checklist)
+- [Legal & Regulatory](#-legal--regulatory-compliance)
+- [Tech Stack](#-tech-stack)
+- [Running Locally](#-running-locally)
+- [Deployed App](#-deployed-app)
+- [Meet the team](#-team)
+
+---
 # 👥 Persona & Scenario Analysis
 
 ## Why Food Delivery Workers?
