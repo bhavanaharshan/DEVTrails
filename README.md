@@ -123,69 +123,19 @@ Every trigger uses **objective, third-party, government-verified data.** No form
 
 ## 🏗️ System Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                           GIGSHIELD PLATFORM                                 │
-│                                                                              │
-│  ┌─────────────────┐   ┌──────────────────┐   ┌───────────────────────────┐ │
-│  │   React PWA     │   │  Node.js/Express │   │   Python FastAPI          │ │
-│  │   Frontend      │◄──┤  Backend API     │◄──┤   ML Engine               │ │
-│  │                 │   │  + Socket.io     │   │                           │ │
-│  │  Worker View    │   │  + node-cron     │   │  · XGBoost (pricing)      │ │
-│  │  Admin Hub      │   │  (2-min trigger) │   │  · Prophet (forecasting)  │ │
-│  │  Offline SOS    │   │                  │   │  · Isolation Forest (fraud)│ │
-│  │  Security Lock  │   │                  │   │  · Kinematic ML           │ │
-│  └────────┬────────┘   └────────┬─────────┘   └───────────────────────────┘ │
-│           │                     │                                            │
-│  ┌────────▼─────────────────────▼──────────────────────────────────────┐    │
-│  │                  PostGIS PostgreSQL Database                         │    │
-│  │       Workers · Policies · Claims · GPS Points · Fraud Flags        │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                                                                              │
-│  External Oracles (all free / govt-published):                              │
-│  Open-Meteo · CPCB · IMD · GNews API · OSRM · Downdetector · Nominatim     │
-│  Razorpay Sandbox (payouts) · Twilio (SMS SOS) · DigiLocker (KYC)          │
-└──────────────────────────────────────────────────────────────────────────────┘
-                    All services networked via Docker Compose
-```
-
 ---
 
-**[ PUT THIS HERE — System Architecture Diagram (visual flowchart of the above) ]**
+<img width="1017" height="1022" alt="image" src="https://github.com/user-attachments/assets/f492b3d2-a98a-428a-8235-fb2046f33987" />
 
 ---
 
 ### Trigger → Payout flow (60 seconds to 2 hours)
 
-```
-External API polled every 2 min (Open-Meteo / CPCB / IMD / GNews / Downdetector)
-                            │
-                    Threshold breached?
-                            │
-              ┌─────────────▼─────────────┐
-              │  Claim Trigger Validator  │  ← dual-source confirmation required
-              │  (Rule engine + ML hybrid)│
-              └─────────────┬─────────────┘
-                            │
-                 Confidence score computed
-                            │
-              ┌─────────────▼─────────────┐
-              │    Fraud Engine           │  ← kinematic check + device trust
-              │    (Zero-Trust Layer)     │    + ring detection
-              └─────────────┬─────────────┘
-                            │
-               Score ≥ 0.85?──────YES──────► Auto-approve → UPI payout fires
-                            │
-                           NO
-                            │
-                    Human review queue (2-hr SLA)
-                            │
-                Worker notified: "₹680 credited. Stay safe."
-```
 
 ---
 
-**[ PUT THIS HERE — Trigger-to-Payout flow diagram screenshot ]**
+<img width="1600" height="832" alt="image" src="https://github.com/user-attachments/assets/98f22644-0c1f-461a-a281-9003389845a1" />
+
 
 ---
 
