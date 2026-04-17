@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   db:
-    image: postgres
+    image: postgis/postgis:16-3.4
     environment:
       POSTGRES_PASSWORD: neema
     volumes:
@@ -19,3 +19,10 @@ services:
     ports:
       - "3000:3000"
     stdin_open: true # Required for React
+
+  trigger-engine:
+    build: ./DEVTrails-api_core_logic/api_core_logic
+    ports:
+      - "3002:3002" # twilio
+    depends_on:
+      - backend

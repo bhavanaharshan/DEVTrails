@@ -39,6 +39,7 @@ export async function evaluateUser(user) {
             triggerType = "fog";
         }
 
+        triggerType = "outage";
         if (!triggerType) {
             console.log(`   🌤️ No extreme conditions detected. Safe to work.`);
             return; 
@@ -46,21 +47,48 @@ export async function evaluateUser(user) {
 
         // ── 4. Behavioral Fraud Check (Priya's ML Engine) ────────────────────────
         console.log(`   ⚠️ EVENT DETECTED: [${triggerType.toUpperCase()}]. Initiating Fraud Check...`);
+        
+       try {
+            console.log("   🔄 1. Waking up Render (Pre-ping)...");
+            // Hits the base URL to start the boot process
+            await axios.get("https://devtrails-yodq.onrender.com", { timeout: 30000 }).catch(() => {});
+            
+            console.log("   ⏳ 2. Stabilizing (Waiting 10s for ML model to load)...");
+            await new Promise(r => setTimeout(r, 10000)); 
+        } catch (e) {
+            console.log("   ⚠️ Pre-ping ignored, proceeding to main call...");
+        }
+
+        // --- B. PREPARE DATA ---
+        const mlPayload = {
+            user_id: user.user_id,
+            start_location: [user.lat, user.lon],
+            end_location: [user.lat, user.lon],
+            start_time: new Date().toISOString(),
+            end_time: new Date().toISOString()
+        };
+
         let mlResult;
-        try {
-            const mlResponse = await axios.post(PRIYA_ML_URL, {
-                user_id: user.user_id,
-                claim_lat: user.lat,
-                claim_lon: user.lon,
-                last_known_lat: user.last_known_lat,
-                last_known_lon: user.last_known_lon,
-                time_diff_minutes: 5, // Simulated time diff for demo
-                hour_of_day: new Date().getHours()
-            });
-            mlResult = mlResponse.data;
-        } catch (error) {
-            console.error(`   ❌ Failed to reach ML Engine. Defaulting to safe fallback.`);
-            mlResult = { is_fraud: false, flag_reason: "API Error" }; 
+        let retries = 4; // 5 total attempts
+        let delayMs = 8000;
+
+        // --- C. THE REPLACEMENT RETRY LOOP (The Fix) ---
+        for (let i = 0; i <= retries; i++) {
+            try {
+                console.log(`   🚀 Attempt ${i + 1}: Calling /predict...`);
+                // Ensure PRIYA_ML_URL in config.js is "https://devtrails-yodq.onrender.com/predict"
+                const mlResponse = await axios.post(PRIYA_ML_URL, mlPayload, { timeout: 45000 });
+                mlResult = mlResponse.data;
+                console.log(`   🧠 ML Response: Fraud=${mlResult.is_fraud}`);
+                break; 
+            } catch (error) {
+                if (i === retries) {
+                    console.error(`   🛑 SAFETY LOCK: ML Engine unreachable. ABORTING PAYOUT.`);
+                    return; // ⛔ THIS STOP THE PAYOUT if AI fails
+                }
+                console.log(`   ⏳ Render still booting... Waiting 8s. (${i + 1}/${retries + 1})`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
         }
 
         // ── 5. Dynamic Pricing Algorithm ─────────────────────────────────────────

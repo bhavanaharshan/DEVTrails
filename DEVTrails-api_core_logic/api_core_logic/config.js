@@ -9,10 +9,12 @@ export const THRESHOLDS = {
 
 export const TIER_MULTIPLIERS = { basic: 0.60, standard: 0.70, full_shield: 0.80 };
 
-// The 3 microservices we talk to
-export const WEBHOOK_URL = "https://rebound-estimate-glue.ngrok-free.dev/api/webhook/sms-sos";
-export const FLAGGED_URL = "https://rebound-estimate-glue.ngrok-free.dev/api/claims/flagged";
-export const PRIYA_ML_URL = "http://localhost:8000/api/api/v1/premium/fraud-check";
+
+export const USERS_API_URL = "http://backend:3001/api/users/active";
+export const WEBHOOK_URL = "http://backend:3001/api/claims/trigger";
+export const FLAGGED_URL = "http://backend:3001/api/claims/flagged";
+
+export const PRIYA_ML_URL = "https://devtrails-yodq.onrender.com/fraud-check";
 
 export const TEST_MODE = false;
 

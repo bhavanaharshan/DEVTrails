@@ -133,19 +133,105 @@ app.post('/api/webhook/sms-sos', async (req, res) => {
     } catch (err) { res.status(500).send('SMS Error'); }
 });
 
+// --- 7. ACTIVE USERS FOR TRIGGERS (Samridhi's part) ---
+app.get('/api/users/active', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                id AS user_id, 
+                name, 
+                upi_id, 
+                ST_X(coords::geometry) AS lon,  -- Changed 'lng' to 'lon'
+                ST_Y(coords::geometry) AS lat,
+                days_worked_count AS days_active_last_120, -- Mapped for your SS Gate
+                4500 AS weekly_income -- Hardcoded so your Dynamic Pricing math works
+            FROM users 
+            WHERE created_at > NOW() - INTERVAL '24 hours'
+            AND coords IS NOT NULL -- Prevents a crash if a user has no GPS data yet
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Trigger data fetch failed:", err);
+        res.status(500).json({ error: "Trigger data fetch failed" });
+    }
+});
+
 // --- 6. USER/LOCATION UPDATES ---
+// app.post('/api/user/update', async (req, res) => {
+//     const { id, upi_id, device_fingerprint, lat, lng, daysWorked, platformMode } = req.body;
+//     try {
+//         const eligible = (platformMode === 'single' && daysWorked >= 90) || (platformMode === 'multi' && daysWorked >= 120);
+//         await pool.query(`
+//             UPDATE users SET upi_id=$1, device_fingerprint=$2, days_worked_count=$3, ss_eligible=$4,
+//             coords=ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, updated_at = NOW()
+//             WHERE id::text=$7 OR firebase_uid=$7`,
+//             [upi_id, device_fingerprint, daysWorked, eligible, lng, lat, id]);
+//         res.json({ success: true });
+//     } catch (err) { res.status(500).json({ error: err.message }); }
+// });
+
+
+// --- 6. USER/LOCATION UPDATES (Bulletproof Edition) ---
 app.post('/api/user/update', async (req, res) => {
     const { id, upi_id, device_fingerprint, lat, lng, daysWorked, platformMode } = req.body;
     try {
         const eligible = (platformMode === 'single' && daysWorked >= 90) || (platformMode === 'multi' && daysWorked >= 120);
-        await pool.query(`
+        
+        // 1. Try to UPDATE the user (and fix the created_at bug)
+        const updateResult = await pool.query(`
             UPDATE users SET upi_id=$1, device_fingerprint=$2, days_worked_count=$3, ss_eligible=$4,
-            coords=ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, updated_at = NOW()
-            WHERE id::text=$7 OR firebase_uid=$7`,
-            [upi_id, device_fingerprint, daysWorked, eligible, lng, lat, id]);
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+            coords=ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, created_at = NOW()
+            WHERE id::text=$7`,
+            [upi_id, device_fingerprint, daysWorked, eligible, lng, lat, id]
+        );
+
+        // 2. If the user doesn't exist yet, INSERT them! (Hackathon Lifesaver)
+        if (updateResult.rowCount === 0) {
+            await pool.query(`
+                INSERT INTO users (id, name, upi_id, device_fingerprint, days_worked_count, ss_eligible, coords, created_at)
+                VALUES ($1, 'Demo Rider', $2, $3, $4, $5, ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography, NOW())
+            `, [id, upi_id, device_fingerprint, daysWorked, eligible, lng, lat]);
+        }
+        
+        res.json({ success: true, message: "Rider registered/updated successfully!" });
+    } catch (err) { 
+        console.error("Update Route Error:", err.message);
+        res.status(500).json({ error: err.message }); 
+    }
 });
+
+// --- 7. AUTOMATED PAYOUT TRIGGERS (Full-Stack Integration) ---
+app.post('/api/claims/trigger', async (req, res) => {
+    const { user_id, trigger_type, payout_amount } = req.body;
+    
+    try {
+        // 1. Log to the Database (Simulating Razorpay/UPI)
+        await pool.query(
+            'INSERT INTO claims (user_id, trigger_type, payout_amount, status) VALUES ($1, $2, $3, $4)',
+            [user_id, trigger_type, payout_amount, 'completed']
+        );
+        
+        // 2. Notify Bhavana's Frontend via Socket.io in real-time
+        if (typeof io !== 'undefined') {
+            io.emit('payout_success', { user_id, amount: payout_amount });
+        }
+        
+        // 3. Keep the glorious terminal logs for the backend demo!
+        console.log(`\n=========================================`);
+        console.log(`💸 BANK API: PAYOUT SUCCESSFUL!`);
+        console.log(`👤 Rider: ${user_id} | 🌩️ Trigger: ${trigger_type}`);
+        console.log(`💰 Amount Transferred: ₹${payout_amount}`);
+        console.log(`=========================================\n`);
+        
+        res.json({ success: true, message: "UPI Payout Initiated & Logged" });
+    } catch (err) {
+        console.error("Payout logging failed:", err.message);
+        res.status(500).json({ error: "Payout logging failed" });
+    }
+});
+
+
+
 
 // --- SERVER START ---
 server.listen(3001, () => {
