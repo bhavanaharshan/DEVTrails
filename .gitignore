@@ -1,0 +1,4 @@
+venv/
+DEVTrails-ml-engine/venv/
+__pycache__/
+.env
