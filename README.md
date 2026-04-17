@@ -1,13 +1,30 @@
-# 🛡️ Jugaad Cover: AI-Powered Parametric Insurance for Gig Economy Delivery Partners
+<div align="center">
 
-[![Guidewire DEVTrails](https://img.shields.io/badge/Guidewire-DEVTrails_2026-blue)](#) [![Phase 1](https://img.shields.io/badge/Phase-1_Ideation-green)](#) 
-<p align="left">
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:001219,30:005F73,60:0A9396,85:94D2BD,100:E9D8A6&height=220&section=header&text=Jugaad&fontSize=72&fontColor=FFFFFF&fontAlignY=38&desc=Parametric%20Income%20Insurance%20for%20India's%20Gig%20Workers&descAlignY=58&descSize=18" width="100%"/>
+
+<br/>
+
+[![BCR](https://img.shields.io/badge/BCR-0.67%20Stress%20Tested-2ECC71?style=for-the-badge&logo=chartdotjs&logoColor=white)](/)
+[![IRDAI](https://img.shields.io/badge/IRDAI-Compliant%20Architecture-1A5276?style=for-the-badge&logo=shield&logoColor=white)](/)
+[![DPDP Act](https://img.shields.io/badge/DPDP%20Act%202023-Consent%20Flow%20Built-8E44AD?style=for-the-badge)](/)
+[![Zero Trust](https://img.shields.io/badge/Zero--Trust-Hardware%20Handshake-E74C3C?style=for-the-badge&logo=datadog&logoColor=white)](/)
+[![Docker](https://img.shields.io/badge/Docker-Multi--Container-2496ED?style=for-the-badge&logo=docker&logoColor=white)](/)
+[![UPI](https://img.shields.io/badge/UPI%20AutoPay-Micro%20Deductions-F39C12?style=for-the-badge)](/)
+
+<br/>
+
+[![Guidewire DEVTrails](https://img.shields.io/badge/Guidewire_DEVTrails-2026-0EA5E9?style=for-the-badge)](#)
+[![Phase 3](https://img.shields.io/badge/Phase3-App%20Completed-06B6D4?style=for-the-badge)](#)
+
+<p align="center">
   <a href="https://youtu.be/ArMU9lqm6jU">
-    <img src="https://img.shields.io/badge/Watch-Demo_Video-red?style=for-the-badge&logo=youtube"/>
+    <img src="https://img.shields.io/badge/Watch-Demo%20Video-FF003C?style=for-the-badge&logo=youtube&logoColor=white"/>
   </a>
 </p>
 
-> **Brief Pitch:** GigShield is a parametric insurance platform designed exclusively to protect the livelihoods of food delivery workers from uncontrollable external disruptions. We ensure that when the weather stops, their income doesn't.
+> **Brief Pitch:** Jugaad is a parametric insurance platform built to protect the livelihoods of food delivery workers from uncontrollable external disruptions. When the weather stops deliveries, their income shouldn’t stop too.
+
+</div>
 
 # 👥 Persona & Scenario Analysis
 
