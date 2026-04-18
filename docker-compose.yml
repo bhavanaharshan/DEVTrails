@@ -1,0 +1,75 @@
+
+services:
+
+  # ── PostgreSQL + PostGIS ───────────────────────────────────
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_PASSWORD: neema
+      POSTGRES_DB: postgres
+    volumes:
+      - ./neema-backend/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # ── Neema Backend (Node.js + Express, port 3001) ──────────
+  backend:
+    build: ./neema-backend
+    ports:
+      - "3001:3001"
+    depends_on:
+      - db
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgresql://postgres:neema@db:5432/postgres
+      - ML_ENGINE_URL=http://ml-engine:8000
+
+  # ── GigShield ML Engine (FastAPI, port 8000) ──────────────
+  ml-engine:
+    build: ./DEVTrails-ml-engine
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+
+  # ── Trigger Engine / Orchestrator (Node.js, port 3002) ────
+  trigger-engine:
+    build: ./DEVTrails-api_core_logic/api_core_logic
+    ports:
+      - "3002:3002"
+    depends_on:
+      - backend
+      - ml-engine
+    environment:
+      - USERS_API_URL=http://backend:3001/api/users/active
+      - WEBHOOK_URL=http://backend:3001/api/claims/trigger
+      - FLAGGED_URL=http://backend:3001/api/claims/flagged
+      - ML_ENGINE_URL=http://ml-engine:8000/api/v1/premium/fraud-check
+      - TEST_MODE=false
+
+  # ── GigShield Worker Frontend (PUBLIC — port 5173) ────────
+  frontend:
+    build: ./gigshield-frontend
+    ports:
+      - "5173:5173"
+    stdin_open: true
+    tty: true
+    environment:
+      - VITE_BACKEND_URL=http://localhost:3001
+      - VITE_ML_URL=http://localhost:8000
+
+  # ── GigShield Admin Dashboard (INTERNAL ONLY — port 4174) ─
+  # ⚠️  DO NOT expose this port on a public server.
+  # In production: put this behind a VPN or basic-auth reverse proxy.
+  admin:
+    build: ./gigshield-admin
+    ports:
+      - "127.0.0.1:4174:4174"   # Binds to localhost only — not accessible externally
+    environment:
+      - VITE_BACKEND_URL=http://localhost:3001
+      - VITE_ML_URL=http://localhost:8000
+      - VITE_ADMIN_SECRET=gigshield-admin-2024
+
+volumes:
+  db_data:
