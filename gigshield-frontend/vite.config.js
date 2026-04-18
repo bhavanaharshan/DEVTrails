@@ -10,8 +10,16 @@ export default defineConfig({
     VitePWA({ 
       registerType: 'autoUpdate',
       devOptions: {
-        enabled: true // Crucial: Allows you to test the PWA offline mode locally
+        enabled: true 
       }
     })
   ],
+  server: {
+    host: true,        // ✅ Required: Allows Docker to expose the server to your laptop
+    port: 5173,        // ✅ Aligned with your current Vite output (image_9e95c9.png)
+    strictPort: true,  // ✅ Prevents Vite from switching ports if 5173 is busy
+    watch: {
+      usePolling: true // ✅ Required for hot-reload to work on Windows Docker volumes
+    }
+  }
 })

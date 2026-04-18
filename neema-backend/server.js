@@ -1,241 +1,429 @@
-// server.js - GigShield Final Phase 3.4 (Zero-Trust & Admin Integrated)
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const http = require('http');
-const axios = require('axios');
-const { Server } = require('socket.io');
 const { Pool } = require('pg');
 
 const app = express();
-const server = http.createServer(app);
+const PORT = process.env.PORT || 3001;
 
-// --- 1. ENHANCED SOCKET & CORS CONFIGURATION ---
-const io = new Server(server, {
-    cors: {
-        origin: "*", 
-        methods: ["GET", "POST"],
-        credentials: true
-    },
-    allowEIO3: true // Fixes Socket.io handshake 400 errors
-});
-
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'ngrok-skip-browser-warning'],
-    credentials: true
-}));
-
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// ------------------------------
+// ENV / CONFIG
+// ------------------------------
+const DATABASE_URL =
+  process.env.DATABASE_URL ||
+  'postgresql://postgres:postgres@db:5432/guideware';
 
-// --- 2. DYNAMIC ADMIN DASHBOARD ROUTE (Bhavana's Fix) ---
-app.get('/api/admin/metrics', async (req, res) => {
-    try {
-        // A. Eligibility Stats (Social Security Card)
-        const eligibilityQuery = await pool.query(`
-            SELECT 
-                COUNT(*) as total_count, 
-                COUNT(*) FILTER (WHERE ss_eligible = true) as eligible_count 
-            FROM users
-        `);
+const TRIGGER_ENGINE_URL =
+  process.env.TRIGGER_ENGINE_URL || 'http://trigger-engine:3002';
 
-        // B. Review Queue (Sybil/Fraud detection from Priya's Engine flags)
-        const reviewQueueQuery = await pool.query(`
-            SELECT id, name, suspicion_reason, mobile 
-            FROM users 
-            WHERE is_flagged = true 
-            ORDER BY updated_at DESC LIMIT 5
-        `);
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+});
 
-        res.json({
-            metrics: { lossRatio: 0.42 }, // Dynamic logic can be added here
-            eligibility: eligibilityQuery.rows[0],
-            reviewQueue: reviewQueueQuery.rows
-        });
-    } catch (err) {
-        console.error("Admin Metric Error:", err.message);
-        res.status(500).json({ error: "Failed to fetch admin data" });
+// ------------------------------
+// HEALTH
+// ------------------------------
+app.get('/health', (_req, res) => {
+  res.json({
+    ok: true,
+    service: 'backend',
+    port: PORT,
+  });
+});
+
+// ------------------------------
+// HELPERS
+// ------------------------------
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const toRad = (d) => (d * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const ZONE_COORDS = {
+  // Thiruvananthapuram
+  kazhakkoottam: { lat: 8.5686, lon: 76.8682, city: 'thiruvananthapuram' },
+  palayam: { lat: 8.5036, lon: 76.9535, city: 'thiruvananthapuram' },
+  kowdiar: { lat: 8.5255, lon: 76.9602, city: 'thiruvananthapuram' },
+  sreekariyam: { lat: 8.5489, lon: 76.9172, city: 'thiruvananthapuram' },
+
+  // Mumbai
+  andheri: { lat: 19.1136, lon: 72.8697, city: 'mumbai' },
+  kurla: { lat: 19.0596, lon: 72.8295, city: 'mumbai' },
+  powai: { lat: 19.1197, lon: 72.9051, city: 'mumbai' },
+
+  // Bengaluru
+  koramangala: { lat: 12.9279, lon: 77.6271, city: 'bengaluru' },
+  whitefield: { lat: 12.9698, lon: 77.7499, city: 'bengaluru' },
+  indiranagar: { lat: 12.9716, lon: 77.6411, city: 'bengaluru' },
+  hsr_layout: { lat: 12.9121, lon: 77.6446, city: 'bengaluru' },
+
+  // Delhi
+  central_delhi: { lat: 28.6271, lon: 77.2217, city: 'delhi' },
+  south_delhi: { lat: 28.5355, lon: 77.21, city: 'delhi' },
+
+  // Lucknow
+  central_lucknow: { lat: 26.8467, lon: 80.9462, city: 'lucknow' },
+
+  // Chennai
+  central_chennai: { lat: 13.0827, lon: 80.2707, city: 'chennai' },
+};
+
+function normalizeCity(city) {
+  return String(city || '').trim().toLowerCase();
+}
+
+function normalizeZone(zone) {
+  return String(zone || '').trim().toLowerCase();
+}
+
+function localFraudCheck(payload) {
+  const city = normalizeCity(payload.city);
+  const zone = normalizeZone(payload.zone);
+  const lat = Number(payload.lat);
+  const lng = Number(payload.lng);
+
+  const zoneRef = ZONE_COORDS[zone];
+
+  if (!zoneRef) {
+    return {
+      is_locked: false,
+      secure: true,
+      source: 'local_fallback',
+      reason: 'Unknown zone; fallback allowed.',
+    };
+  }
+
+  if (city && zoneRef.city !== city) {
+    return {
+      is_locked: true,
+      secure: false,
+      source: 'local_fallback',
+      reason: 'City and zone mismatch detected.',
+    };
+  }
+
+  const distance = haversineKm(lat, lng, zoneRef.lat, zoneRef.lon);
+  const MAX_RADIUS_KM = 15;
+
+  if (distance > MAX_RADIUS_KM) {
+    return {
+      is_locked: true,
+      secure: false,
+      source: 'local_fallback',
+      reason: `Kinematic Violation: ${distance.toFixed(1)}km spoofing detected.`,
+      distance_km: Number(distance.toFixed(2)),
+    };
+  }
+
+  return {
+    is_locked: false,
+    secure: true,
+    source: 'local_fallback',
+    reason: 'Secure location verified.',
+    distance_km: Number(distance.toFixed(2)),
+  };
+}
+
+// ------------------------------
+// API: SECURITY VERIFY (FRAUD ONLY)
+// ------------------------------
+app.post('/api/security/verify', async (req, res) => {
+  try {
+    const {
+      userId,
+      name,
+      mobile,
+      city,
+      zone,
+      lat,
+      lng,
+      daysWorked,
+      platformMode,
+    } = req.body || {};
+
+    if (
+      !city ||
+      !zone ||
+      lat === undefined ||
+      lng === undefined ||
+      Number.isNaN(Number(lat)) ||
+      Number.isNaN(Number(lng))
+    ) {
+      return res.status(400).json({
+        is_locked: true,
+        secure: false,
+        reason: 'Missing or invalid city/zone/lat/lng for security verification.',
+      });
     }
-});
 
-// --- 3. ZERO-TRUST: Dynamic Location Verification (Priya's Engine) ---
-app.post('/api/security/verify-location', async (req, res) => {
-    const { user_id, declared_location_text, device_lat, device_lon } = req.body;
-    
+    // 1) Try ML engine first
     try {
-        // Step A: Geocoding via Nominatim
-        const geoRes = await axios.get(`https://nominatim.openstreetmap.org/search`, {
-            params: { q: declared_location_text, format: 'json', limit: 1 },
-            headers: { 'User-Agent': 'GigShield-S6-Project' }
+      const mlResp = await fetch(`${TRIGGER_ENGINE_URL}/api/v1/premium/lockout-check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId || 'demo_user',
+          name: name || null,
+          mobile: mobile || null,
+          city: normalizeCity(city),
+          zone: normalizeZone(zone),
+          lat: Number(lat),
+          lon: Number(lng), // ML expects lon, not lng
+          days_worked_count: Number(daysWorked || 90),
+          platform_mode: platformMode || 'single',
+        }),
+      });
+
+      if (mlResp.ok) {
+        const mlData = await mlResp.json();
+
+        const locked =
+          mlData.lockout_active === true ||
+          mlData.is_locked === true ||
+          mlData.secure === false;
+
+        return res.json({
+          is_locked: Boolean(locked),
+          secure: !Boolean(locked),
+          reason:
+            mlData.reason ||
+            (locked
+              ? 'Suspicious location detected.'
+              : 'Secure location verified.'),
+          source: 'ml_engine',
+          raw: mlData,
         });
+      }
 
-        if (!geoRes.data || geoRes.data.length === 0) {
-            return res.json({ secure: false, reason: "Location text not recognized." });
-        }
-
-        const officialLat = parseFloat(geoRes.data[0].lat);
-        const officialLon = parseFloat(geoRes.data[0].lon);
-
-        // Step B: Connect to Priya's Engine
-        const verifyRes = await axios.post('https://supraorbital-hyperrhythmical-naoma.ngrok-free.dev/api/v1/premium/verify', {
-            lat1: device_lat, 
-            lon1: device_lon,
-            lat2: officialLat, 
-            lon2: officialLon
-        }, { 
-            headers: { 'ngrok-skip-browser-warning': 'true' },
-            timeout: 5000 
-        });
-
-        // Step C: Update DB status if flagged
-        if (!verifyRes.data.secure) {
-            await pool.query('UPDATE users SET is_flagged = true, suspicion_reason = $1 WHERE id = $2', 
-            [verifyRes.data.reason || "Location Anomaly", user_id]);
-        }
-
-        res.json({
-            secure: verifyRes.data.secure,
-            reason: verifyRes.data.secure ? "Verified" : (verifyRes.data.reason || "Verification Failed")
-        });
-
-    } catch (err) {
-        res.status(500).json({ secure: false, reason: "Security Engine Offline." });
+      console.warn('ML engine returned non-200, using local fallback:', mlResp.status);
+    } catch (mlErr) {
+      console.warn('ML engine unreachable, using local fallback:', mlErr.message);
     }
-});
 
-// --- 4. SYBIL DETECTION: Graph Export ---
-app.get('/api/admin/graph-data', async (req, res) => {
-    try {
-        const edges = await pool.query(`
-            SELECT u1.id AS source, u2.id AS target, 'shared_upi' AS type FROM users u1
-            JOIN users u2 ON u1.upi_id = u2.upi_id AND u1.id < u2.id
-            UNION
-            SELECT u1.id AS source, u2.id AS target, 'shared_device' AS type FROM users u1
-            JOIN users u2 ON u1.device_fingerprint = u2.device_fingerprint AND u1.id < u2.id
-        `);
-        const nodes = await pool.query(`SELECT id, name, is_flagged FROM users`);
-        res.json({ nodes: nodes.rows, edges: edges.rows });
-    } catch (err) { res.status(500).json({ error: "Graph fail" }); }
-});
+    // 2) Fallback local fraud check
+    const fallback = localFraudCheck({ city, zone, lat, lng });
+    return res.json(fallback);
+  } catch (err) {
+    console.error('/api/security/verify crashed:', err);
 
-// --- 5. OFFLINE SOS: Twilio Webhook ---
-app.post('/api/webhook/sms-sos', async (req, res) => {
-    const { Body } = req.body; 
     try {
-        const parts = Body.split('-'); 
-        const userId = parts[2];
-        await pool.query(`INSERT INTO claims (user_id, trigger_type, payout_amount) VALUES ($1, 'SMS_SOS', 500)`, [userId]);
-        res.type('text/xml').send('<Response><Message>GigShield: SOS Verified. Payout Sent.</Message></Response>');
-    } catch (err) { res.status(500).send('SMS Error'); }
-});
-
-// --- 7. ACTIVE USERS FOR TRIGGERS (Samridhi's part) ---
-app.get('/api/users/active', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT 
-                id AS user_id, 
-                name, 
-                upi_id, 
-                ST_X(coords::geometry) AS lon,  -- Changed 'lng' to 'lon'
-                ST_Y(coords::geometry) AS lat,
-                days_worked_count AS days_active_last_120, -- Mapped for your SS Gate
-                4500 AS weekly_income -- Hardcoded so your Dynamic Pricing math works
-            FROM users 
-            WHERE created_at > NOW() - INTERVAL '24 hours'
-            AND coords IS NOT NULL -- Prevents a crash if a user has no GPS data yet
-        `);
-        res.json(result.rows);
-    } catch (err) {
-        console.error("Trigger data fetch failed:", err);
-        res.status(500).json({ error: "Trigger data fetch failed" });
+      const fallback = localFraudCheck(req.body || {});
+      return res.json(fallback);
+    } catch (innerErr) {
+      console.error('Fallback security check failed:', innerErr);
+      return res.status(200).json({
+        is_locked: false,
+        secure: true,
+        reason: 'Security verification degraded mode: activation allowed.',
+        source: 'safe_fail_open',
+      });
     }
+  }
 });
 
-// --- 6. USER/LOCATION UPDATES ---
-// app.post('/api/user/update', async (req, res) => {
-//     const { id, upi_id, device_fingerprint, lat, lng, daysWorked, platformMode } = req.body;
-//     try {
-//         const eligible = (platformMode === 'single' && daysWorked >= 90) || (platformMode === 'multi' && daysWorked >= 120);
-//         await pool.query(`
-//             UPDATE users SET upi_id=$1, device_fingerprint=$2, days_worked_count=$3, ss_eligible=$4,
-//             coords=ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, updated_at = NOW()
-//             WHERE id::text=$7 OR firebase_uid=$7`,
-//             [upi_id, device_fingerprint, daysWorked, eligible, lng, lat, id]);
-//         res.json({ success: true });
-//     } catch (err) { res.status(500).json({ error: err.message }); }
-// });
-
-
-// --- 6. USER/LOCATION UPDATES (Bulletproof Edition) ---
+// ------------------------------
+// API: USER UPDATE
+// ------------------------------
 app.post('/api/user/update', async (req, res) => {
-    const { id, upi_id, device_fingerprint, lat, lng, daysWorked, platformMode } = req.body;
-    try {
-        const eligible = (platformMode === 'single' && daysWorked >= 90) || (platformMode === 'multi' && daysWorked >= 120);
-        
-        // 1. Try to UPDATE the user (and fix the created_at bug)
-        const updateResult = await pool.query(`
-            UPDATE users SET upi_id=$1, device_fingerprint=$2, days_worked_count=$3, ss_eligible=$4,
-            coords=ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, created_at = NOW()
-            WHERE id::text=$7`,
-            [upi_id, device_fingerprint, daysWorked, eligible, lng, lat, id]
-        );
+  try {
+    const {
+      id,
+      name,
+      mobile,
+      city,
+      zone,
+      lat,
+      lng,
+      daysWorked,
+      platformMode,
+    } = req.body || {};
 
-        // 2. If the user doesn't exist yet, INSERT them! (Hackathon Lifesaver)
-        if (updateResult.rowCount === 0) {
-            await pool.query(`
-                INSERT INTO users (id, name, upi_id, device_fingerprint, days_worked_count, ss_eligible, coords, created_at)
-                VALUES ($1, 'Demo Rider', $2, $3, $4, $5, ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography, NOW())
-            `, [id, upi_id, device_fingerprint, daysWorked, eligible, lng, lat]);
-        }
-        
-        res.json({ success: true, message: "Rider registered/updated successfully!" });
-    } catch (err) { 
-        console.error("Update Route Error:", err.message);
-        res.status(500).json({ error: err.message }); 
+    if (!id) {
+      return res.status(400).json({ error: 'Missing user id' });
     }
+
+    const hasCoords =
+      lat !== undefined &&
+      lng !== undefined &&
+      !Number.isNaN(Number(lat)) &&
+      !Number.isNaN(Number(lng));
+
+    const query = `
+      INSERT INTO users (
+        id, name, mobile, city, zone, lat, lng, coords,
+        days_worked_count, platform_mode, updated_at
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7,
+        CASE
+          WHEN $6 IS NOT NULL AND $7 IS NOT NULL
+          THEN ST_SetSRID(ST_MakePoint($7, $6), 4326)::geography
+          ELSE NULL
+        END,
+        $8, $9, NOW()
+      )
+      ON CONFLICT (id)
+      DO UPDATE SET
+        name = EXCLUDED.name,
+        mobile = EXCLUDED.mobile,
+        city = EXCLUDED.city,
+        zone = EXCLUDED.zone,
+        lat = EXCLUDED.lat,
+        lng = EXCLUDED.lng,
+        coords = EXCLUDED.coords,
+        days_worked_count = EXCLUDED.days_worked_count,
+        platform_mode = EXCLUDED.platform_mode,
+        updated_at = NOW()
+      RETURNING id, name, city, zone, lat, lng, days_worked_count, platform_mode;
+    `;
+
+    const values = [
+      id,
+      name || null,
+      mobile || null,
+      normalizeCity(city),
+      normalizeZone(zone),
+      hasCoords ? Number(lat) : null,
+      hasCoords ? Number(lng) : null,
+      Number(daysWorked || 0),
+      platformMode || 'single',
+    ];
+
+    const result = await pool.query(query, values);
+
+    return res.json({
+      ok: true,
+      user: result.rows[0],
+    });
+  } catch (err) {
+    console.error('/api/user/update error:', err);
+
+    return res.status(200).json({
+      ok: true,
+      degraded: true,
+      message: 'User cache skipped because DB is unavailable.',
+    });
+  }
 });
 
-// --- 7. AUTOMATED PAYOUT TRIGGERS (Full-Stack Integration) ---
-app.post('/api/claims/trigger', async (req, res) => {
-    const { user_id, trigger_type, payout_amount } = req.body;
-    
+// ------------------------------
+// API: RISK SUMMARY (WEATHER WARNING ONLY)
+// ------------------------------
+app.post('/api/risk/summary', async (req, res) => {
+  try {
+    const city = normalizeCity(req.body && req.body.city);
+
     try {
-        // 1. Log to the Database (Simulating Razorpay/UPI)
-        await pool.query(
-            'INSERT INTO claims (user_id, trigger_type, payout_amount, status) VALUES ($1, $2, $3, $4)',
-            [user_id, trigger_type, payout_amount, 'completed']
-        );
-        
-        // 2. Notify Bhavana's Frontend via Socket.io in real-time
-        if (typeof io !== 'undefined') {
-            io.emit('payout_success', { user_id, amount: payout_amount });
-        }
-        
-        // 3. Keep the glorious terminal logs for the backend demo!
-        console.log(`\n=========================================`);
-        console.log(`💸 BANK API: PAYOUT SUCCESSFUL!`);
-        console.log(`👤 Rider: ${user_id} | 🌩️ Trigger: ${trigger_type}`);
-        console.log(`💰 Amount Transferred: ₹${payout_amount}`);
-        console.log(`=========================================\n`);
-        
-        res.json({ success: true, message: "UPI Payout Initiated & Logged" });
+      const riskResp = await fetch(`${TRIGGER_ENGINE_URL}/api/v1/risk-summary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ city }),
+      });
+
+      if (riskResp.ok) {
+        const riskData = await riskResp.json();
+        const score = Number(riskData.risk_score ?? riskData.claim_probability ?? 0.35);
+
+        return res.json({
+          city,
+          risk_score: score,
+          risk_tier:
+            riskData.risk_tier ||
+            (score >= 0.7 ? 'HIGH' : score >= 0.4 ? 'MEDIUM' : 'LOW'),
+          operational_alert: score >= 0.7,
+          reason:
+            score >= 0.7
+              ? 'High weather/operational risk in your zone. Activation allowed, but disruption probability is elevated.'
+              : 'Operational conditions are normal.',
+          source: 'ml_engine',
+          raw: riskData,
+        });
+      }
     } catch (err) {
-        console.error("Payout logging failed:", err.message);
-        res.status(500).json({ error: "Payout logging failed" });
+      console.warn('Risk summary ML unavailable, using fallback:', err.message);
     }
+
+    const fallbackScores = {
+      mumbai: 0.62,
+      delhi: 0.58,
+      chennai: 0.52,
+      lucknow: 0.48,
+      bengaluru: 0.5,
+      thiruvananthapuram: 0.42,
+    };
+
+    const score = fallbackScores[city] ?? 0.5;
+
+    return res.json({
+      city,
+      risk_score: score,
+      risk_tier: score >= 0.7 ? 'HIGH' : score >= 0.4 ? 'MEDIUM' : 'LOW',
+      operational_alert: score >= 0.7,
+      reason:
+        score >= 0.7
+          ? 'High weather/operational risk in your zone. Activation allowed, but disruption probability is elevated.'
+          : 'Operational conditions are normal.',
+      source: 'fallback',
+    });
+  } catch (err) {
+    console.error('/api/risk/summary error:', err);
+    return res.status(200).json({
+      city: 'unknown',
+      risk_score: 0.5,
+      risk_tier: 'MEDIUM',
+      operational_alert: false,
+      reason: 'Risk service degraded. Activation allowed.',
+      source: 'safe_fail_open',
+    });
+  }
 });
 
+// ------------------------------
+// API: ACTIVE USERS
+// ------------------------------
+app.get('/api/users/active', async (_req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, name, mobile, city, zone, lat, lng, days_worked_count, platform_mode
+      FROM users
+      WHERE is_active = TRUE
+      ORDER BY updated_at DESC
+      LIMIT 100;
+    `);
 
+    res.json({
+      ok: true,
+      count: result.rows.length,
+      users: result.rows,
+    });
+  } catch (err) {
+    console.error('/api/users/active error:', err);
+    res.status(200).json({
+      ok: true,
+      count: 0,
+      users: [],
+      degraded: true,
+    });
+  }
+});
 
-
-// --- SERVER START ---
-server.listen(3001, () => {
-    console.log("🚀 GigShield 3.4 FULLY INTEGRATED");
-    console.log("📍 Admin Route: http://localhost:3001/api/admin/metrics");
-    console.log("📍 ngrok Tunnel: https://rebound-estimate-glue.ngrok-free.dev");
+// ------------------------------
+// START
+// ------------------------------
+app.listen(PORT, () => {
+  console.log(`✅ Backend running on port ${PORT}`);
+  console.log(`📡 Trigger engine URL: ${TRIGGER_ENGINE_URL}`);
 });

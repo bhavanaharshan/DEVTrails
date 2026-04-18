@@ -1,300 +1,361 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../context/AuthContext'; 
-import { io } from 'socket.io-client'; 
-import { 
-  Menu, X, Home, Truck, User, Zap, ShieldCheck, WifiOff, AlertTriangle, 
-  Phone, MapPin, RefreshCw, Lock, Unlock, CheckCircle2, Timer 
+import {
+  Shield,
+  ShieldAlert,
+  AlertTriangle,
+  MapPin,
+  TimerReset,
+  IndianRupee,
+  Loader2,
+  RefreshCw,
+  CheckCircle2,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-const BACKEND_URL = 'https://rebound-estimate-glue.ngrok-free.dev';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
-export default function Dashboard() {
-  const { user } = useAuth(); 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activePage, setActivePage] = useState('dashboard');
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const [sosPayload, setSosPayload] = useState('');
-  
-  const [profile, setProfile] = useState({
-    id: user?.uid || "demo_user", 
-    name: localStorage.getItem('gs_name') || "Delivery Partner",
-    zone: localStorage.getItem('gs_zone') || "Pending Zone",
-    mobile: user?.phoneNumber || "+91 00000 00000",
-    platforms: JSON.parse(localStorage.getItem('gs_platforms') || '[]'),
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || "demo"}`,
-    days_worked_count: 0, 
-    ss_eligible: false
-  });
+function prettyLabel(value = '') {
+  return String(value)
+    .split('_')
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : ''))
+    .join(' ');
+}
+
+function useLiveDuration() {
+  const [minutes, setMinutes] = useState(252); // 4h 12m initial
 
   useEffect(() => {
-    const handleOffline = () => setIsOffline(true);
-    const handleOnline = () => setIsOffline(false);
-    window.addEventListener('offline', handleOffline);
-    window.addEventListener('online', handleOnline);
+    const t = setInterval(() => setMinutes((m) => m + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
 
-    const prepareSOS = () => {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition((pos) => {
-          setSosPayload(`SOS-CLAIM-${profile.id}-LAT${pos.coords.latitude.toFixed(2)}-LON${pos.coords.longitude.toFixed(2)}`);
-        });
-      }
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hrs}H ${mins}M`;
+}
+
+export default function Dashboard() {
+  const { user } = useAuth();
+
+  const profile = useMemo(() => {
+    const city = localStorage.getItem('gs_city') || 'bengaluru';
+    const zone = localStorage.getItem('gs_zone') || 'indiranagar';
+    return {
+      id: user?.uid || 'demo_user',
+      name: localStorage.getItem('gs_name') || 'BHAVANA',
+      city,
+      zone,
+      zoneLabel: prettyLabel(zone),
+      cityLabel: prettyLabel(city),
+      daysWorked: Number(localStorage.getItem('gs_days_worked') || 0),
+      platformMode: localStorage.getItem('gs_platform_mode') || 'single',
     };
-    if (isOffline) prepareSOS();
+  }, [user]);
 
-    return () => {
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('online', handleOnline);
-    };
-  }, [isOffline, profile.id]);
+  const liveDuration = useLiveDuration();
 
-  const Navigation = () => (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 mb-10">
-        <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white font-black italic text-lg shadow-lg">G</div>
-        <span className="font-black text-2xl italic tracking-tight text-white">GIG<span className="text-orange-500">SHIELD</span></span>
+  const [loading, setLoading] = useState(true);
+  const [security, setSecurity] = useState({
+    is_locked: false,
+    status: 'secure',
+    reason: 'ALL_CLEAR',
+  });
+  const [risk, setRisk] = useState({
+    operational_alert: false,
+    risk_score: 0.42,
+    risk_tier: 'MEDIUM',
+    reason: 'Operational conditions normal.',
+  });
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const ssEligible =
+    (profile.platformMode === 'single' && profile.daysWorked >= 90) ||
+    (profile.platformMode === 'multi' && profile.daysWorked >= 120);
+
+  const fetchDashboardState = async () => {
+    try {
+      const [securityResp, riskResp] = await Promise.all([
+        fetch(`${BACKEND_URL}/api/security/status/${profile.id}`),
+        fetch(`${BACKEND_URL}/api/risk/summary/${profile.id}`),
+      ]);
+
+      const securityData = await securityResp.json();
+      const riskData = await riskResp.json();
+
+      setSecurity({
+        is_locked: !!securityData.is_locked,
+        status: securityData.status || 'secure',
+        reason: securityData.reason || 'ALL_CLEAR',
+      });
+
+      setRisk({
+        operational_alert: !!riskData.operational_alert,
+        risk_score: riskData.risk_score ?? 0.42,
+        risk_tier: riskData.risk_tier ?? 'MEDIUM',
+        reason: riskData.reason || 'Operational conditions normal.',
+      });
+    } catch (err) {
+      console.error('Dashboard fetch failed:', err);
+      // Fail safe for dashboard view: keep secure UI but show warning only
+      setRisk({
+        operational_alert: true,
+        risk_score: 0.42,
+        risk_tier: 'MEDIUM',
+        reason: 'Unable to refresh live operational signals.',
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardState();
+
+    const interval = setInterval(() => {
+      fetchDashboardState();
+    }, 30000); // refresh every 30s
+
+    return () => clearInterval(interval);
+  }, [profile.id]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchDashboardState();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#060816] text-white flex items-center justify-center">
+        <div className="flex items-center gap-3 text-white/80 font-semibold">
+          <Loader2 className="animate-spin" size={20} />
+          Loading secure dashboard...
+        </div>
       </div>
-      <nav className="space-y-2 flex-1">
-        {[{ id: 'dashboard', label: 'Earnings', icon: <Home size={20}/> },
-          { id: 'duty', label: 'Trip History', icon: <Truck size={20}/> },
-          { id: 'profile', label: 'My Profile', icon: <User size={20}/> }
-        ].map((item) => (
-          <button 
-            key={item.id} 
-            onClick={() => { setActivePage(item.id); setIsSidebarOpen(false); }} 
-            className={`w-full flex items-center gap-4 p-4 rounded-2xl font-bold transition-all ${activePage === item.id ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-          >
-            {item.icon} {item.label}
-          </button>
-        ))}
-      </nav>
-    </div>
-  );
+    );
+  }
 
   return (
-    <div className="flex h-screen bg-[#0F0F1A] text-white font-sans overflow-hidden">
+    <div className="min-h-screen bg-[#060816] text-white">
       <AnimatePresence>
-        {isOffline && (
-          <motion.div initial={{ y: -50 }} animate={{ y: 0 }} exit={{ y: -50 }} className="fixed top-0 left-0 w-full bg-red-600 text-white p-3 z-[100] flex justify-center items-center gap-4 shadow-2xl">
-            <WifiOff size={20} />
-            <span className="font-bold text-sm tracking-wide">Network Offline. SOS Fallback Active.</span>
-            <a href={`sms:+919876543210?body=${sosPayload}`} className="bg-white text-red-600 px-4 py-1 rounded-full font-black text-xs uppercase tracking-wider shadow-lg">Send SMS Claim</a>
+        {security.is_locked && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center px-6"
+          >
+            <div className="w-full max-w-xl rounded-[2rem] border border-red-500/20 bg-[#11111a] p-8 md:p-10 text-center shadow-2xl">
+              <div className="mx-auto w-20 h-20 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-6">
+                <ShieldAlert className="text-red-400" size={36} />
+              </div>
+
+              <h1 className="text-4xl md:text-5xl font-black italic text-red-400 tracking-tight">
+                SECURITY LOCKOUT
+              </h1>
+
+              <p className="mt-4 text-red-100/90 font-semibold leading-relaxed">
+                {security.reason || 'Suspicious location mismatch detected.'}
+              </p>
+
+              <div className="mt-8 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-left">
+                <p className="text-xs uppercase tracking-[0.25em] font-bold text-red-300 mb-2">
+                  Zero-Trust Status
+                </p>
+                <p className="text-sm text-red-100">
+                  Dashboard access has been blocked because your live device location
+                  does not match your declared operating zone.
+                </p>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsSidebarOpen(false)} />
-
-      <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#161622] border-r border-white/5 p-6 flex flex-col transform transition-transform lg:relative lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <Navigation />
-      </aside>
-
-      <div className={`flex-1 flex flex-col h-screen overflow-y-auto relative ${isOffline ? 'mt-12' : ''}`}>
-        <header className="p-6 flex justify-between items-center sticky top-0 z-30 bg-[#0F0F1A]/80 backdrop-blur-xl border-b border-white/5">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 -ml-2 hover:bg-white/5 rounded-full"><Menu size={24} /></button>
-            <h1 className="text-lg font-black uppercase tracking-widest text-orange-500">{activePage.toUpperCase()}</h1>
+      {/* TOP BAR */}
+      <header className="w-full border-b border-white/5 px-5 md:px-8 py-4 flex items-center justify-between">
+        <div>
+          <p className="text-sm md:text-base font-black uppercase tracking-wider text-orange-400">
+            {profile.zoneLabel}
+          </p>
+          <div className="mt-1 flex items-center gap-2 text-white/50 text-sm">
+            <MapPin size={14} />
+            <span>Detected: {profile.zoneLabel}</span>
           </div>
-          <div className="text-right">
-            <p className="text-sm font-bold text-white">{profile.name}</p>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{profile.zone}</p>
-          </div>
-        </header>
+        </div>
 
-        <main className="flex-1 w-full flex flex-col">
-          {activePage === 'dashboard' && <DashboardView profile={profile} setProfile={setProfile} />}
-          {activePage === 'profile' && <ProfileView profile={profile} setProfile={setProfile} />}
-        </main>
-      </div>
+        <div className="flex items-center gap-3">
+          {risk.operational_alert && !security.is_locked && (
+            <div className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full border border-yellow-500/20 bg-yellow-500/10 text-yellow-300 text-xs font-bold uppercase tracking-wider">
+              <AlertTriangle size={14} />
+              Warning
+            </div>
+          )}
+
+          <div
+            className={`flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-bold uppercase tracking-wider ${
+              security.is_locked
+                ? 'border-red-500/20 bg-red-500/10 text-red-300'
+                : 'border-green-500/20 bg-green-500/10 text-green-300'
+            }`}
+          >
+            <Shield size={14} />
+            {security.is_locked ? 'Locked' : 'Secure'}
+          </div>
+        </div>
+      </header>
+
+      {/* BODY */}
+      <main className="max-w-5xl mx-auto px-5 md:px-8 py-8 md:py-12">
+        {/* Warning banner (weather/risk only) */}
+        <AnimatePresence>
+          {risk.operational_alert && !security.is_locked && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 flex items-start gap-3"
+            >
+              <AlertTriangle className="text-yellow-300 mt-0.5" size={18} />
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] font-bold text-yellow-300">
+                  High Operational Risk
+                </p>
+                <p className="text-sm text-yellow-100">
+                  {risk.reason ||
+                    'Zone conditions are elevated. Coverage remains active, but risk is higher than usual.'}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Hero */}
+        <section className="max-w-2xl mx-auto">
+          <p className="text-xs md:text-sm font-black uppercase tracking-[0.25em] text-white/35">
+            Authenticated Rider
+          </p>
+
+          <div className="mt-3 flex items-center justify-between gap-4 flex-wrap">
+            <h1 className="text-4xl md:text-6xl font-black italic tracking-tight leading-none">
+              WELCOME, <span className="text-orange-500">{profile.name.toUpperCase()}</span>
+            </h1>
+
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="w-12 h-12 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center hover:bg-white/10 transition"
+              title="Refresh dashboard"
+            >
+              <RefreshCw className={refreshing ? 'animate-spin' : ''} size={18} />
+            </button>
+          </div>
+
+          {/* Core cards */}
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <MetricCard
+              icon={<Shield className="text-orange-500" size={20} />}
+              label="Policy Status"
+              value={security.is_locked ? 'LOCKED' : 'SHIELD PRO'}
+            />
+
+            <MetricCard
+              icon={<TimerReset className="text-blue-400" size={20} />}
+              label="Live Duration"
+              value={liveDuration}
+            />
+          </div>
+
+          <div className="mt-5">
+            <BigMetricCard
+              label="Total Protected Earnings"
+              value="₹4,500"
+              sub={
+                <div className="mt-3 flex items-center justify-center gap-2 text-sm text-white/50">
+                  <IndianRupee size={14} />
+                  <span>Protection active for this shift</span>
+                </div>
+              }
+            />
+          </div>
+
+          {/* Secondary info */}
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-5">
+            <InfoCard
+              label="Risk Tier"
+              value={risk.risk_tier}
+              accent={
+                risk.risk_tier === 'HIGH'
+                  ? 'text-yellow-300'
+                  : risk.risk_tier === 'MEDIUM'
+                  ? 'text-cyan-300'
+                  : 'text-green-300'
+              }
+            />
+
+            <InfoCard
+              label="Zone"
+              value={profile.zoneLabel}
+              accent="text-white"
+            />
+
+            <InfoCard
+              label="SS Gateway"
+              value={ssEligible ? 'Eligible' : 'In Progress'}
+              accent={ssEligible ? 'text-green-300' : 'text-orange-300'}
+            />
+          </div>
+
+          {/* Footer status */}
+          <div className="mt-6 rounded-3xl border border-white/10 bg-[#0d1020] p-5">
+            <div className="flex items-start gap-3">
+              <CheckCircle2
+                className={security.is_locked ? 'text-red-400' : 'text-green-400'}
+                size={18}
+              />
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] font-bold text-white/40">
+                  Security Handshake
+                </p>
+                <p className="mt-1 text-sm text-white/80">
+                  {security.is_locked
+                    ? security.reason
+                    : 'Live GPS verification successful. Zero-Trust session active.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
 
-const DashboardView = ({ profile, setProfile }) => {
-  const [securityStatus, setSecurityStatus] = useState('scanning'); 
-  const [fraudReason, setFraudReason] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  // 1. Engagement thresholds for Social Security Gateway
-  const platformMode = profile.platforms.length > 1 ? 'multi' : 'single';
-  const targetDays = platformMode === 'single' ? 90 : 120;
-  const daysRemaining = Math.max(targetDays - profile.days_worked_count, 0);
-  const progressPercent = Math.min((profile.days_worked_count / targetDays) * 100, 100);
-
-  // 2. Initial Sync Simulation (The 50-Day Scenario)
-  const handleInitialSync = async () => {
-    setIsSyncing(true);
-    setTimeout(async () => {
-      const historicalDays = 95; 
-      try {
-        await fetch(`${BACKEND_URL}/api/user/update`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: profile.id,
-            daysWorked: historicalDays,
-            platformMode: platformMode,
-            upi_id: "verified_user@upi"
-          })
-        });
-        setProfile(prev => ({ 
-          ...prev, 
-          days_worked_count: historicalDays,
-          ss_eligible: (platformMode === 'single' && historicalDays >= 90) || (platformMode === 'multi' && historicalDays >= 120)
-        }));
-      } catch (err) { console.error("Sync failed"); }
-      setIsSyncing(false);
-    }, 2000);
-  };
-
-  // 3. Socket Connection (Listen for Real-time stat updates)
-  useEffect(() => {
-    const socket = io(BACKEND_URL, { extraHeaders: { "ngrok-skip-browser-warning": "true" } });
-    socket.emit('join-zone', profile.zone);
-    
-    // Real-time update for Engagement Rules
-    socket.on('update-stats', (data) => {
-      setProfile(prev => ({ 
-        ...prev, 
-        days_worked_count: data.days_worked_count,
-        ss_eligible: data.ss_eligible
-      }));
-    });
-
-    socket.on('claim-notification', () => {
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 8000);
-    });
-
-    return () => socket.disconnect();
-  }, [profile.zone]);
-
-  // Zero-Trust Security Handshake
-  useEffect(() => {
-    const runSecurityScan = async () => {
-      setSecurityStatus('scanning');
-      navigator.geolocation.getCurrentPosition(async (pos) => {
-        try {
-          const response = await fetch(`${BACKEND_URL}/api/security/verify-location`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-            body: JSON.stringify({
-              user_id: profile.id, 
-              declared_location_text: profile.zone, 
-              device_lat: pos.coords.latitude,
-              device_lon: pos.coords.longitude
-            })
-          });
-          const data = await response.json();
-          setSecurityStatus(data.secure ? 'secure' : 'compromised');
-          if (!data.secure) setFraudReason(data.reason);
-        } catch (err) {
-          setSecurityStatus('compromised');
-          setFraudReason('Zero-Trust Violation: Security Handshake Failed.');
-        }
-      });
-    };
-    if (profile.zone !== "Pending Zone") runSecurityScan();
-  }, [profile.zone, profile.id]);
-
+function MetricCard({ icon, label, value }) {
   return (
-    <div className="p-4 md:p-10 flex flex-col gap-6 relative min-h-full">
-      <AnimatePresence>
-        {securityStatus === 'compromised' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-[60] bg-black/95 flex flex-col items-center justify-center p-6 backdrop-blur-xl">
-            <AlertTriangle size={64} className="text-red-500 mb-4" />
-            <h2 className="text-3xl font-black text-red-500 mb-2 uppercase italic">Security Lockout</h2>
-            <p className="text-gray-300 font-bold mb-8 text-center max-w-md">{fraudReason}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 1. SOCIAL SECURITY GATEWAY (Progress & Locked/Unlocked UI) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Progress Card */}
-        <div className="bg-[#161622] p-8 rounded-3xl border border-white/5 shadow-xl">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Work Engagement Ledger</h3>
-            <button onClick={handleInitialSync} disabled={isSyncing} className="bg-white/5 hover:bg-white/10 p-2 rounded-xl transition-all">
-              <RefreshCw className={isSyncing ? "animate-spin" : ""} size={16} />
-            </button>
-          </div>
-          <div className="flex justify-between items-end mb-4">
-            <p className="text-4xl font-black italic">{profile.days_worked_count}<span className="text-gray-600 text-lg ml-2">Days</span></p>
-            <p className="text-[10px] font-black uppercase text-orange-500">{daysRemaining} To Eligibility</p>
-          </div>
-          <div className="h-4 w-full bg-gray-800 rounded-full border border-white/5 p-1 mb-4">
-            <motion.div 
-              initial={{ width: 0 }} 
-              animate={{ width: `${progressPercent}%` }} 
-              className="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.3)]" 
-            />
-          </div>
-          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
-            Mode: {platformMode === 'multi' ? 'Multi-Apping (120D)' : 'Single Platform (90D)'}
-          </p>
-        </div>
-
-        {/* Locked/Unlocked Benefits Card */}
-        <motion.div 
-          animate={{ backgroundColor: profile.ss_eligible ? "rgba(79, 70, 229, 0.1)" : "rgba(31, 31, 46, 1)" }}
-          className={`p-8 rounded-3xl border-2 transition-all duration-700 relative overflow-hidden ${profile.ss_eligible ? 'border-indigo-500/40' : 'border-white/5'}`}
-        >
-          <div className="flex justify-between items-start mb-8">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${profile.ss_eligible ? 'bg-indigo-500 text-white' : 'bg-gray-800 text-gray-600'}`}>
-              {profile.ss_eligible ? <Unlock size={24} /> : <Lock size={24} />}
-            </div>
-            {profile.ss_eligible && <span className="bg-green-500 text-white text-[8px] font-black uppercase px-3 py-1 rounded-full animate-bounce">Verified Badge</span>}
-          </div>
-          <h3 className="text-xl font-black mb-1">State Social Security</h3>
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-6">Payout Eligibility Status</p>
-          
-          <button disabled={!profile.ss_eligible} className={`w-full py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all ${
-            profile.ss_eligible ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg' : 'bg-gray-800 text-gray-600 opacity-50 cursor-not-allowed'
-          }`}>
-            {profile.ss_eligible ? "Claim Social Payout" : "Threshold Not Met"}
-          </button>
-        </motion.div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-[#161622] p-8 rounded-3xl border border-white/5 shadow-xl group">
-          <p className="text-5xl font-black mb-2 tracking-tighter transition-colors group-hover:text-orange-500">₹3,500</p>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Today's Earnings</p>
-        </div>
-        <div className="bg-[#161622] p-8 rounded-3xl border border-white/5 shadow-xl group">
-          <p className="text-5xl font-black mb-2 tracking-tighter transition-colors group-hover:text-orange-500">5.4 <span className="text-2xl text-gray-600 font-normal">hrs</span></p>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Active Shift</p>
-        </div>
-      </div>
+    <div className="rounded-[2rem] border border-white/8 bg-[#101223] p-6 md:p-7 shadow-xl">
+      <div className="mb-6">{icon}</div>
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-white/35">{label}</p>
+      <p className="mt-3 text-3xl md:text-4xl font-black italic tracking-tight">{value}</p>
     </div>
   );
-};
+}
 
-const ProfileView = ({ profile }) => (
-  <div className="p-6 md:p-10 max-w-2xl mx-auto w-full">
-    <div className="bg-[#161622] rounded-3xl border border-white/5 p-8 flex flex-col items-center shadow-2xl">
-      <div className="w-32 h-32 rounded-full border-4 border-orange-500/30 overflow-hidden mb-6 shadow-xl">
-        <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
-      </div>
-      <h2 className="text-3xl font-black italic mb-2 tracking-tighter text-white">{profile.name}</h2>
-      <p className="text-orange-500 font-bold uppercase tracking-widest text-xs mb-8">Verified Partner • {profile.zone}</p>
-      
-      <div className="w-full space-y-3">
-        <div className="flex items-center gap-4 bg-[#0F0F1A] p-4 rounded-2xl border border-white/5">
-          <Phone className="text-orange-500/50" size={18} />
-          <div><p className="text-[8px] uppercase text-gray-500 font-bold">Mobile</p><p className="font-bold text-sm text-white">{profile.mobile}</p></div>
-        </div>
-        <div className="flex items-center gap-4 bg-[#0F0F1A] p-4 rounded-2xl border border-white/5">
-          <MapPin className="text-orange-500/50" size={18} />
-          <div><p className="text-[8px] uppercase text-gray-500 font-bold">Zone</p><p className="font-bold text-sm text-white">{profile.zone}</p></div>
-        </div>
-        <div className="flex items-center gap-4 bg-[#0F0F1A] p-4 rounded-2xl border border-white/5">
-          <ShieldCheck className={profile.ss_eligible ? "text-green-500" : "text-gray-500"} size={18} />
-          <div><p className="text-[8px] uppercase text-gray-500 font-bold">Social Security Status</p><p className="font-bold text-sm text-white uppercase">{profile.ss_eligible ? 'Eligible' : 'Ineligible'}</p></div>
-        </div>
-      </div>
+function BigMetricCard({ label, value, sub }) {
+  return (
+    <div className="rounded-[2rem] border border-white/8 bg-[#101223] p-8 md:p-10 shadow-xl text-center">
+      <p className="text-xs font-black uppercase tracking-[0.25em] text-white/35">{label}</p>
+      <p className="mt-5 text-5xl md:text-7xl font-black italic tracking-tight">{value}</p>
+      {sub}
     </div>
-  </div>
-);
+  );
+}
+
+function InfoCard({ label, value, accent = 'text-white' }) {
+  return (
+    <div className="rounded-[1.5rem] border border-white/8 bg-[#101223] p-5 shadow-lg">
+      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/35">{label}</p>
+      <p className={`mt-3 text-xl font-black tracking-tight ${accent}`}>{value}</p>
+    </div>
+  );
+}

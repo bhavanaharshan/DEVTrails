@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   db:
     image: postgis/postgis:16-3.4
@@ -13,16 +12,27 @@ services:
       - "3001:3001"
     depends_on:
       - db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   frontend:
     build: ./gigshield-frontend
     ports:
-      - "3000:3000"
-    stdin_open: true # Required for React
+      - "5173:5173" # ✅ Change this from 3000:3000 to match your Vite output
+    stdin_open: true
+    env_file:
+      - ./gigshield-frontend/.env
+    tty: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   trigger-engine:
     build: ./DEVTrails-api_core_logic/api_core_logic
     ports:
-      - "3002:3002" # twilio
+      - "3002:3002"
     depends_on:
       - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+# ✅ ML Engine remains removed because you are running it locally in a venv.
