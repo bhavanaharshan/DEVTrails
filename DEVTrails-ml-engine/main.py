@@ -21,8 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://devtrails-1-40gq.onrender.com",   # current admin frontend
-        "https://devtrails-1-b7mw.onrender.com",   # older admin URL (optional)
+        "https://devtrails-judaagcover.onrender.com",
         "https://jugaad-frontend-zeta.vercel.app", # main frontend
         "https://jugaad-frontend-git-main-bhavanaharshans-projects.vercel.app", # preview frontend
     ],
