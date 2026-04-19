@@ -66,7 +66,7 @@
 
 When weather stops deliveries, their income shouldn't stop too.
 
-Traditional insurance requires filing claims, waiting weeks, proving loss. **GigShield doesn't.** An objective weather threshold is crossed → GPS verifies the rider is in the affected zone → ₹ lands in their UPI wallet. Under 2 hours. Zero paperwork. Zero human intervention.
+Traditional insurance requires filing claims, waiting weeks, proving loss. **Jugaad doesn't.** An objective weather threshold is crossed → GPS verifies the rider is in the affected zone → ₹ lands in their UPI wallet. Under 2 hours. Zero paperwork. Zero human intervention.
 
 ```
 External disruption fires  →  GPS verified in real-time  →  ₹ transferred via UPI in < 2 hrs
@@ -173,7 +173,7 @@ WHERE ST_DWithin(
 
 ## 🤖 ML & AI Engine
 
-GigShield's intelligence layer does three things: **price risk fairly each week**, **predict disruptions before they hit**, and **validate every trigger before a payout fires.**
+Jugaad's intelligence layer does three things: **price risk fairly each week**, **predict disruptions before they hit**, and **validate every trigger before a payout fires.**
 
 Every data source used is free, open, or government-published — zero paid API dependency.
 
@@ -223,7 +223,6 @@ Calibrated BCR  =  0.67
 ✓ Sustainable band: 0.6 – 0.7
 ✓ Pool remains solvent under 14-day continuous extreme stress
 ✓ Not exploitative (< 0.8), not loss-making (> 0.5)
-✓ PDF + graph artifact generated → /ml/reports/bcr_simulation.pdf
 ```
 
 <img width="563" height="296" alt="image" src="https://github.com/user-attachments/assets/824be6c5-dde6-424b-93a8-d67865cefcc2" />
@@ -490,7 +489,6 @@ No internet. Still covered. No action needed from the worker.
 | GitHub Actions | CI/CD pipeline |
 | Razorpay Sandbox | Instant payout simulation |
 | Twilio | SMS SOS webhook |
-| DigiLocker API | KYC verification |
 
 ---
 
@@ -507,7 +505,7 @@ No internet. Still covered. No action needed from the worker.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-org/gigshield.git
+git clone https://github.com/bhavanaharshan/DEVTrails.git
 cd gigshield
 
 # 2. Copy environment config
@@ -517,30 +515,9 @@ cp .env.example .env
 docker-compose up --build
 ```
 
-
-### Simulate a trigger event (for testing)
-
-```bash
-# Force a "Heavy Rain" event in zone Kurla-Mumbai for testing
-curl -X POST http://localhost:5000/api/debug/simulate-trigger \
-  -H "Content-Type: application/json" \
-  -d '{"scenario": "heavy_rain", "zone": "kurla_mumbai", "intensity": "severe"}'
-
-# Expected: WebSocket push fires → dashboard shows green payout screen
-# Expected: Worker gets "₹680 credited. Stay safe." notification
-```
-
-### Run the BCR simulation
-
-```bash
-cd ml
-python bcr_simulation.py --days 14 --scenario monsoon --output ./reports
-# Generates: reports/bcr_simulation.pdf + reports/bcr_graph.png
-```
-
 ---
 
-## 👥 Team
+## 👥 Meet the team
 
 | Member | Domain | Key Contributions |
 |---|---|---|
