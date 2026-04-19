@@ -47,7 +47,7 @@
 
 ## Table of Contents
 
-- [What is Jugaad?](#-what-is-jugaad?)
+- [What is Jugaad?](#-what-is-jugaad)
 - [The 7 Scenarios We Cover](#️-the-7-scenarios-we-cover)
 - [System Architecture](#️-system-architecture)
 - [ML & AI Engine](#-ml--ai-engine)
@@ -58,7 +58,7 @@
 - [Tech Stack](#-tech-stack)
 - [Running Locally](#-running-locally)
 - [Deployed App](#-deployed-app)
-- [Meet the team](#-team)
+- [Meet the team](#-meet-the-tean)
 
 ## 🌧️ What is Jugaad?
 
