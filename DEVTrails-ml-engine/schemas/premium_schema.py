@@ -1,14 +1,16 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
+
 
 class PremiumRequest(BaseModel):
     user_id: str
-    zone: str                        
-    city: str                        
-    platform: str                    
-    weekly_income: float             
-    shift_window: str                
+    zone: str
+    city: str
+    platform: str
+    weekly_income: float
+    shift_window: str
     tier_preference: Optional[str] = "standard"
+
 
 class RiskBreakdown(BaseModel):
     rain: float
@@ -19,22 +21,25 @@ class RiskBreakdown(BaseModel):
     congestion: float
     outage: float
 
+
 class PremiumResponse(BaseModel):
     user_id: str
-    premium_amount: float            
+    premium_amount: float
     tier: str
-    coverage_percentage: int         
+    coverage_percentage: int
     max_weekly_payout: float
     daily_income_estimate: float
     slab_shield_eligible: bool
     risk_breakdown: RiskBreakdown
     forecast_alert: str
 
+
 class PayoutRequest(BaseModel):
     user_id: str
     amount: float
     reason: str
     upi_id: Optional[str] = "rider@upi"
+
 
 class PayoutResponse(BaseModel):
     status: str
@@ -43,6 +48,8 @@ class PayoutResponse(BaseModel):
     upi_id: str
     message: str
     razorpay_status: str
+
+
 class TriggerCheckRequest(BaseModel):
     user_id: str
     zone: Optional[str] = None
@@ -53,7 +60,8 @@ class TriggerCheckRequest(BaseModel):
     weekly_income: float
     shift_window: str
     tier: str = "standard"
-    trigger_type: Optional[str] = None  # "weather" | "aqi" | "outage"
+    trigger_type: Optional[str] = None   # "weather" | "aqi" | "outage"
+
 
 class ScenarioResult(BaseModel):
     scenario: str
@@ -63,20 +71,29 @@ class ScenarioResult(BaseModel):
     payout_amount: float
     confidence: float
 
+
 class TriggerCheckResponse(BaseModel):
     user_id: str
     city: str
     any_triggered: bool
-    triggered_scenarios: list[ScenarioResult]
+    triggered_scenarios: List[ScenarioResult]
     total_payout: float
     confidence_score: float
     auto_approve: bool
     message: str
+
+
+# ─────────────────────────────────────────────
+# Lockout — field name is lockout_active (NOT is_locked)
+# lockout_service.py returns lockout_active
+# Dashboard reads is_locked from /api/security/status — mapped in main.py proxy
+# ─────────────────────────────────────────────
 class LockoutRequest(BaseModel):
     zone: str
     city: str
     lat: Optional[float] = None
     lon: Optional[float] = None
+
 
 class LockoutResponse(BaseModel):
     lockout_active: bool

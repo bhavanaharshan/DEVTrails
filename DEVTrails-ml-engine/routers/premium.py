@@ -1,38 +1,32 @@
-
-from services.risk_aggregator import compute_final_risk
 from fastapi import APIRouter
 from pydantic import BaseModel
-from schemas.premium_schema import LockoutRequest, LockoutResponse
-from services.lockout_service import check_lockout
+from typing import Optional
 
 from schemas.premium_schema import (
     PremiumRequest, PremiumResponse, RiskBreakdown,
     PayoutRequest, PayoutResponse,
     TriggerCheckRequest, TriggerCheckResponse, ScenarioResult,
-    LockoutRequest, LockoutResponse   # ✅ ADD THIS LINE
+    LockoutRequest, LockoutResponse,
 )
 from models.earnings_dna import earnings_profiler
 from models.premium_engine import premium_engine
 from models.disruption_forecast import generate_alert_text
 
 from services.risk_scorer import get_full_risk_scores
+from services.risk_aggregator import compute_final_risk
 from services.trigger_engine import evaluate_triggers
 from services.payout_service import simulate_upi_payout
 from services.location_service import resolve_location, get_scenarios_for_trigger
-from data.financial_stress_test import run_14day_monsoon_stress, get_risk_signal
-# ✅ NEW: fraud service import
-from services.fraud_service import check_kinematic_fraud
-from data.financial_stress_test import run as run_bcr_test
-from data.generate_bcr_report import main as generate_bcr_pdf
-
+from services.fraud_service import verify_final, check_kinematic_fraud
+from services.lockout_service import check_lockout
 from services.geo_security_service import verify_location
-from pydantic import BaseModel
+
 router = APIRouter(prefix="/api/v1/premium", tags=["Premium"])
 
 
-# =========================
-# ✅ FRAUD REQUEST MODEL
-# =========================
+# ─────────────────────────────────────────────
+# Request models defined locally in this router
+# ─────────────────────────────────────────────
 class FraudRequest(BaseModel):
     user_id: str
     claim_lat: float
@@ -40,7 +34,8 @@ class FraudRequest(BaseModel):
     last_known_lat: float
     last_known_lon: float
     time_diff_minutes: float
-    hour_of_day: int | None = None
+    hour_of_day: Optional[int] = None
+
 
 class VerifyRequest(BaseModel):
     lat1: float
@@ -49,26 +44,43 @@ class VerifyRequest(BaseModel):
     lon2: float
 
 
-# =========================
-# ✅ PREMIUM CALCULATION
-# =========================
+class SecurityVerifyRequest(BaseModel):
+    """Used by Onboarding handleFinalSubmit → POST /api/security/verify"""
+    userId: str
+    name: Optional[str] = None
+    mobile: Optional[str] = None
+    city: str
+    zone: str
+    lat: float
+    lng: float
+    daysWorked: Optional[int] = 90
+    platformMode: Optional[str] = "single"
+
+
+class RiskSummaryRequest(BaseModel):
+    """Used by Onboarding step 4 → POST /api/risk/summary"""
+    city: str
+
+
+# ─────────────────────────────────────────────
+# PREMIUM CALCULATION
+# ─────────────────────────────────────────────
 @router.post("/calculate", response_model=PremiumResponse)
 async def calculate_premium(req: PremiumRequest):
-
     # Step 1 — Earnings DNA
     dna = earnings_profiler.estimate_daily_income(
         req.weekly_income, req.city, req.platform, req.shift_window
     )
 
-    # Step 2 — Disruption forecast scores (async)
+    # Step 2 — Live risk scores
     risk_scores = await get_full_risk_scores(req.city)
-    final_risk = compute_final_risk(risk_scores, req.city)
-    risk_score = final_risk["risk_score"]
+    final_risk  = compute_final_risk(risk_scores, req.city)
+    risk_score  = final_risk["risk_score"]
 
-    # Step 3 — Premium calculation
-    result = premium_engine.calculate(
+    # Step 3 — ML premium
+    result  = premium_engine.calculate(
         req.weekly_income, req.city, req.zone, req.platform,
-        req.shift_window, req.tier_preference, risk_scores
+        req.shift_window, req.tier_preference, risk_scores,
     )
     premium = result["premium_amount"]
 
@@ -76,12 +88,11 @@ async def calculate_premium(req: PremiumRequest):
         premium *= 1.1
     elif risk_score < 0.4:
         premium *= 0.9
-
     premium = round(premium, 2)
     result["premium_amount"] = premium
 
     # Step 4 — Max payout
-    daily_payout = dna["daily_income_estimate"] * (result["coverage_percentage"] / 100)
+    daily_payout     = dna["daily_income_estimate"] * (result["coverage_percentage"] / 100)
     max_weekly_payout = round(daily_payout * 3, 2)
 
     # Step 5 — Alert text
@@ -100,9 +111,9 @@ async def calculate_premium(req: PremiumRequest):
     )
 
 
-# =========================
-# ✅ PAYOUT
-# =========================
+# ─────────────────────────────────────────────
+# PAYOUT
+# ─────────────────────────────────────────────
 @router.post("/payout", response_model=PayoutResponse)
 def trigger_payout(req: PayoutRequest):
     result = simulate_upi_payout(
@@ -114,33 +125,30 @@ def trigger_payout(req: PayoutRequest):
     return PayoutResponse(**result)
 
 
-# =========================
-# ✅ TRIGGER CHECK
-# =========================
+# ─────────────────────────────────────────────
+# TRIGGER CHECK
+# ─────────────────────────────────────────────
 @router.post("/trigger-check", response_model=TriggerCheckResponse)
 async def check_triggers(req: TriggerCheckRequest):
-
     if req.lat is not None and req.lon is not None:
         location = resolve_location(req.lat, req.lon)
-        city     = location["city"]
-        zone     = location["zone"]
+        city = location["city"]
+        zone = location["zone"]
     else:
         city = req.city or "mumbai"
-        zone = req.zone or "kurla_mumbai"
+        zone = req.zone or "kurla"
 
-    scenarios = get_scenarios_for_trigger(req.trigger_type)
-
+    scenarios   = get_scenarios_for_trigger(req.trigger_type)
     risk_scores = await get_full_risk_scores(city)
-    final_risk = compute_final_risk(risk_scores, city)
-    risk_score = final_risk["risk_score"]
+    final_risk  = compute_final_risk(risk_scores, city)
+    risk_score  = final_risk["risk_score"]
 
-    result = evaluate_triggers(
-        risk_scores, req.weekly_income, req.tier,
-        scenarios_to_check=scenarios
-    )
+    result = evaluate_triggers(risk_scores, req.weekly_income, req.tier,
+                               scenarios_to_check=scenarios)
+
     if risk_score > 0.7:
-        result["auto_approve"] = True
-        result["confidence_score"] = max(result["confidence_score"], 0.9)
+        result["auto_approve"]      = True
+        result["confidence_score"]  = max(result["confidence_score"], 0.9)
 
     if not result["any_triggered"]:
         message = "No disruptions detected in your zone. Stay safe."
@@ -163,111 +171,133 @@ async def check_triggers(req: TriggerCheckRequest):
     )
 
 
-# =========================
-# 🚨 FRAUD CHECK (NEW)
-# =========================
+# ─────────────────────────────────────────────
+# FRAUD CHECK
+# Called by the trigger engine evaluator (Node.js) with:
+#   { user_id, claim_lat, claim_lon, last_known_lat, last_known_lon,
+#     time_diff_minutes, hour_of_day }
+# Returns: { is_fraud: bool, flag_reason: str|None }
+# ─────────────────────────────────────────────
 @router.post("/fraud-check")
 async def fraud_check(req: FraudRequest):
-
-    result = await verify_final_api({
-    "user_id": req.user_id,
-    "frame_b64": "dummy_for_now",
-    "relationships": [],
-    "claim_lat": req.claim_lat,
-    "claim_lon": req.claim_lon,
-    "last_lat": req.last_known_lat,
-    "last_lon": req.last_known_lon,
-    "time_diff_minutes": req.time_diff_minutes
-})
-
+    result = await verify_final(
+        user_id=req.user_id,
+        frame_b64="stub",
+        relationships=[],
+        claim_lat=req.claim_lat,
+        claim_lon=req.claim_lon,
+        last_lat=req.last_known_lat,
+        last_lon=req.last_known_lon,
+        time_diff_minutes=req.time_diff_minutes,
+    )
     return result
 
-# =========================
-# 🚫 LOCKOUT CHECK
-# =========================
+
+# ─────────────────────────────────────────────
+# LOCKOUT CHECK
+# ─────────────────────────────────────────────
 @router.post("/lockout-check", response_model=LockoutResponse)
 async def lockout_check(req: LockoutRequest):
     result = await check_lockout(
         city=req.city,
         zone=req.zone,
         lat=req.lat,
-        lon=req.lon
+        lon=req.lon,
     )
     return LockoutResponse(**result)
 
 
-# =========================
-# 📊 RISK SIGNAL (NEW)
-# =========================
+# ─────────────────────────────────────────────
+# SECURITY VERIFY  ← called by Onboarding handleFinalSubmit
+# POST /api/v1/premium/security/verify
+# Proxied from backend /api/security/verify by main.py
+# ─────────────────────────────────────────────
+@router.post("/security/verify")
+async def security_verify(req: SecurityVerifyRequest):
+    lockout_result = await check_lockout(
+        city=req.city,
+        zone=req.zone,
+        lat=req.lat,
+        lon=req.lng,
+    )
+    is_locked = lockout_result.get("lockout_active", False)
+    return {
+        "is_locked": is_locked,
+        "status":    "locked" if is_locked else "secure",
+        "reason":    lockout_result.get("reason", "ALL_CLEAR"),
+        "city":      lockout_result.get("city", req.city),
+        "zone":      lockout_result.get("zone", req.zone),
+    }
+
+
+# ─────────────────────────────────────────────
+# RISK SUMMARY  ← called by Onboarding step 4 + Dashboard polling
+# POST /api/v1/premium/risk/summary
+# GET  /api/v1/premium/risk/summary/{user_id}
+# ─────────────────────────────────────────────
+@router.post("/risk/summary")
+async def risk_summary_post(req: RiskSummaryRequest):
+    risk_scores = await get_full_risk_scores(req.city)
+    return compute_final_risk(risk_scores, req.city)
+
+
+@router.get("/risk/summary/{user_id}")
+async def risk_summary_get(user_id: str, city: str = "mumbai"):
+    risk_scores = await get_full_risk_scores(city)
+    return compute_final_risk(risk_scores, city)
+
+
+# ─────────────────────────────────────────────
+# SECURITY STATUS  ← called by Dashboard polling
+# GET /api/v1/premium/security/status/{user_id}
+# Requires lat/lon query params for live check; defaults to secure if missing
+# ─────────────────────────────────────────────
+@router.get("/security/status/{user_id}")
+async def security_status(
+    user_id: str,
+    city: str = "mumbai",
+    zone: str = "kurla",
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+):
+    lockout_result = await check_lockout(city=city, zone=zone, lat=lat, lon=lon)
+    is_locked = lockout_result.get("lockout_active", False)
+    return {
+        "is_locked": is_locked,
+        "status":    "locked" if is_locked else "secure",
+        "reason":    lockout_result.get("reason", "ALL_CLEAR"),
+    }
+
+
+# ─────────────────────────────────────────────
+# VERIFY (distance check only)
+# ─────────────────────────────────────────────
+@router.post("/verify")
+async def verify(req: VerifyRequest):
+    return verify_location(req.lat1, req.lon1, req.lat2, req.lon2)
+
+
+# ─────────────────────────────────────────────
+# RISK SIGNAL
+# ─────────────────────────────────────────────
 @router.get("/risk-signal")
 def risk_signal():
     from data.financial_stress_test import run
+    return run()
 
-    result = run()  # make sure run() RETURNS data
-    return result
-@router.get("/run-bcr")
-async def run_bcr():
-    result = run_bcr_test()
 
-    # generate chart + PDF
-    generate_bcr_pdf()
-
-    return {
-        "message": "BCR test completed and report generated",
-        "data": result
-    }
-@router.post("/verify")
-async def verify(req: VerifyRequest):
-    result = verify_location(
-        req.lat1,
-        req.lon1,
-        req.lat2,
-        req.lon2
-    )
-    return result
-@router.post("/verify-user")
-def verify_user_api(data: dict):
-    from services.fraud_service import verify_user
-
-    return verify_user(
-        data["user_id"],
-        data["frame_b64"],
-        data.get("relationships", [])
-    )
-@router.post("/verify-final")
-async def verify_final_api(data: dict):
-    from services.fraud_service import verify_final
-
-    return await verify_final(
-        user_id=data["user_id"],
-        frame_b64=data["frame_b64"],
-        relationships=data.get("relationships", []),
-        claim_lat=data["claim_lat"],
-        claim_lon=data["claim_lon"],
-        last_lat=data["last_lat"],
-        last_lon=data["last_lon"],
-        time_diff_minutes=data["time_diff_minutes"]
-    )
-# =========================
-# 🤖 ML RISK PREDICTION (NEW)
-# =========================
+# ─────────────────────────────────────────────
+# PREDICT RISK  ← ML live scoring
+# ─────────────────────────────────────────────
 @router.get("/predict-risk")
 async def predict_risk(city: str = "mumbai"):
-    """
-    Live ML-style risk scoring endpoint
-    """
-
-    # Step 1 — get scenario risks (you already built this)
     risk_scores = await get_full_risk_scores(city)
-
-    # Step 2 — aggregate into final ML score
-    final = compute_final_risk(risk_scores, city)
-
+    final       = compute_final_risk(risk_scores, city)
     return {
-        "city": city,
-        "risk_score": final["risk_score"],
-        "claim_probability": final["claim_probability"],
-        "risk_tier": final["risk_tier"],
+        "city":               city,
+        "risk_score":         final["risk_score"],
+        "claim_probability":  final["claim_probability"],
+        "risk_tier":          final["risk_tier"],
         "lockout_recommended": final["lockout_recommended"],
-        "risk_breakdown": risk_scores
+        "risk_breakdown":     risk_scores,
     }

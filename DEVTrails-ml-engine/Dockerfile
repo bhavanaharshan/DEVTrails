@@ -2,12 +2,12 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Fix temp directory issue
 ENV TMPDIR=/var/tmp
 
-COPY . .
-
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
 
 EXPOSE 8000
 

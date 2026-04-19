@@ -3,7 +3,7 @@ import json, os
 
 # In production this would read from PostgreSQL
 # For MVP we use a JSON file to persist zone loss data
-LOSS_DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/zone_loss_history.json")
+LOSS_DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../data/zone_loss_history.json")
 
 def _load_loss_data() -> dict:
     if not os.path.exists(LOSS_DATA_PATH):

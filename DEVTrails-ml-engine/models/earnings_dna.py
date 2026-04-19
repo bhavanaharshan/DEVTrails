@@ -1,24 +1,39 @@
 import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor
-import json, os
 
-PLATFORM_FACTOR = {"zomato": 1.05, "swiggy": 1.00}
+PLATFORM_FACTOR = {"zomato": 1.05, "swiggy": 1.00, "blinkit": 1.02, "zepto": 1.02}
 SHIFT_FACTOR    = {"morning": 0.85, "evening": 1.20, "night": 1.00}
+
+# ─────────────────────────────────────────────
+# City index + multipliers
+# Any new city added to CITY_ZONE_MAP in the frontend must be added here
+# ─────────────────────────────────────────────
+CITY_INDEX = {
+    "mumbai":             0,
+    "delhi":              1,
+    "lucknow":            2,
+    "chennai":            3,
+    "bengaluru":          4,
+    "thiruvananthapuram": 5,
+}
+
+CITY_MULTIPLIERS = [1.35, 1.40, 1.10, 1.20, 1.30, 1.05]  # index-aligned with CITY_INDEX
+
 
 def _generate_training_data():
     np.random.seed(42)
     X, y = [], []
-    cities    = ["mumbai", "delhi", "lucknow", "chennai"]
+    cities    = list(CITY_INDEX.keys())
     platforms = ["zomato", "swiggy"]
     shifts    = ["morning", "evening", "night"]
 
-    for _ in range(500):
+    for _ in range(600):
         city_idx     = np.random.randint(0, len(cities))
         platform_idx = np.random.randint(0, len(platforms))
         shift_idx    = np.random.randint(0, len(shifts))
         base_income  = np.random.uniform(2800, 6500)
 
-        city_mult     = [1.35, 1.40, 1.10, 1.20][city_idx]
+        city_mult     = CITY_MULTIPLIERS[city_idx]
         platform_mult = [1.05, 1.00][platform_idx]
         shift_mult    = [0.85, 1.20, 1.00][shift_idx]
 
@@ -29,6 +44,7 @@ def _generate_training_data():
 
     return np.array(X), np.array(y)
 
+
 class EarningsDNAProfiler:
     def __init__(self):
         self.model = GradientBoostingRegressor(n_estimators=100, random_state=42)
@@ -38,17 +54,18 @@ class EarningsDNAProfiler:
         X, y = _generate_training_data()
         self.model.fit(X, y)
 
-    def estimate_daily_income(self, weekly_income: float, city: str,
-                               platform: str, shift_window: str) -> dict:
-        city_map     = {"mumbai": 0, "delhi": 1, "lucknow": 2, "chennai": 3}
-        platform_map = {"zomato": 0, "swiggy": 1}
-        shift_map    = {"morning": 0, "evening": 1, "night": 2}
+    def estimate_daily_income(
+        self,
+        weekly_income: float,
+        city: str,
+        platform: str,
+        shift_window: str,
+    ) -> dict:
+        city_idx     = CITY_INDEX.get(city, CITY_INDEX["lucknow"])
+        platform_idx = 0 if platform in ("zomato", "blinkit", "zepto") else 1
+        shift_idx    = {"morning": 0, "evening": 1, "night": 2}.get(shift_window, 2)
 
-        city_idx     = city_map.get(city, 2)
-        platform_idx = platform_map.get(platform, 1)
-        shift_idx    = shift_map.get(shift_window, 2)
-
-        city_mult     = [1.35, 1.40, 1.10, 1.20][city_idx]
+        city_mult     = CITY_MULTIPLIERS[city_idx]
         platform_mult = [1.05, 1.00][platform_idx]
         shift_mult    = [0.85, 1.20, 1.00][shift_idx]
 
@@ -61,8 +78,9 @@ class EarningsDNAProfiler:
 
         return {
             "daily_income_estimate": round(estimated_daily, 2),
-            "slab_shield_eligible": slab_eligible
+            "slab_shield_eligible": slab_eligible,
         }
+
 
 # Singleton — loaded once when FastAPI starts
 earnings_profiler = EarningsDNAProfiler()

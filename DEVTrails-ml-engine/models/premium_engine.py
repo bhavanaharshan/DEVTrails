@@ -4,7 +4,7 @@ from sklearn.ensemble import GradientBoostingRegressor  # ✅ REPLACED
 
 from services.recalibration_service import get_zone_multiplier
 
-ZONE_DATA_PATH = os.path.join(os.path.dirname(__file__), "../data/mock_zone_history.json")
+ZONE_DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../data/mock_zone_history.json")
 
 with open(ZONE_DATA_PATH) as f:
     ZONE_DATA = json.load(f)
