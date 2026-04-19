@@ -22,11 +22,19 @@
 <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white"/>
 <img src="https://img.shields.io/badge/XGBoost-ML_Engine-FF6600?style=flat-square"/>
 <p align="center">
-  <a href="https://youtu.be/9M0zTJoEqf4?si=6lR9z52qrm7oBMk9">
+  <a href="https://youtu.be/X7u7Ihqp5AQ">
     <img src="https://img.shields.io/badge/Watch-Demo%20Video-FF003C?style=for-the-badge&logo=youtube&logoColor=white"/>
   </a>
   <a href="https://drive.google.com/drive/folders/1-4tH2nAV8p89iXrHkJ2WtXvpOVPL0Sbv?usp=sharing">
     <img src="https://img.shields.io/badge/Pitch%20Deck-Open%20Presentation-06B6D4?style=for-the-badge&logo=googledrive&logoColor=white"/>
+  </a>
+</p>
+<p align="center">
+  <a href="https://jugaad-frontend-git-main-bhavanaharshans-projects.vercel.app/">
+    <img src="https://img.shields.io/badge/Worker%20Dashboard-Live-00C853?style=for-the-badge&logo=vercel&logoColor=white" alt="Worker Dashboard">
+  </a>
+  <a href="https://devtrails-1-40gq.onrender.com/">
+    <img src="https://img.shields.io/badge/Admin%20Dashboard-Live-FF6D00?style=for-the-badge&logo=render&logoColor=white" alt="Admin Dashboard">
   </a>
 </p>
 
@@ -491,7 +499,11 @@ No internet. Still covered. No action needed from the worker.
 | Twilio | SMS SOS webhook |
 
 ---
+## Deployed App: 
 
+Worker Dashboard: https://jugaad-frontend-git-main-bhavanaharshans-projects.vercel.app/
+</br>
+Admin Dashboard (Password: admin123): https://devtrails-1-40gq.onrender.com/
 ## 🚀 Running Locally
 
 ### Prerequisites
