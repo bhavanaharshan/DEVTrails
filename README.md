@@ -544,7 +544,7 @@ docker-compose up --build
 
 | Deliverable | Status |
 |---|---|
-| ✅ 5-minute demo video | **[ Watch here](https://youtu.be/9M0zTJoEqf4)** |
+| ✅ 5-minute demo video | **[ Watch here](https://youtu.be/X7u7Ihqp5AQ)** |
 | ✅ Pitch deck (PDF) | **[[Click here]](https://drive.google.com/drive/folders/1-4tH2nAV8p89iXrHkJ2WtXvpOVPL0Sbv)** |
 | ✅ Source code (default branch) | This repository |
 | ✅ Docker Compose (local setup) | `docker-compose up --build` |
